@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta Title="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}RLViz{% end %}</title>
+
+        <!-- Bootstrap -->
+        <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+        <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+        <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+        <!--[if lt IE 9]>
+          <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+          <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+        <![endif]-->
+        <link rel="stylesheet" type="text/css" href="/static/custom/css/shared.css">
+        {% block css %}
+        <!-- No custom CSS has been added -->
+        {% end %}
+        <!--[if gte IE 9]>
+          <style type="text/css">
+            .gradient {
+               filter: none;
+            }
+          </style>
+        <![endif]-->
+    </head>
+    <body>
+
+        <!-- NAV BAR
+        =================================-->
+        {% block navbar %}
+        <div class="navbar navbar-inverse" role="navigation" id="top">
+            <div class="container-fluid">
+                <!-- Brand and toggle get grouped for better mobile display -->
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="/">RLViz</a>
+                </div>
+                <!-- Collect the nav links, forms, and other content for toggling -->
+                <div class="collapse navbar-collapse" id="-default-navbar-">
+                    <ul class="nav navbar-nav">
+                        <li{% if active == 'UI'%} class="active" {% end %}><a href="/tool/ui/">UI</a></li>
+                    </ul>
+                    <ul class="nav navbar-nav navbar-right">
+                        <li><a href="#">Written by Romain G.</a></li>
+                    </ul>
+                </div><!-- /.navbar-collapse -->
+            </div><!-- /.container -->
+        </div><!-- /.navbar -->
+        {% end %}
+
+        <!-- HEADER
+        =================================-->
+        {% block header %}
+        <div class="jumbotron text-center">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col col-lg-12 col-sm-12">
+                        <h1>RLViz</h1>
+                        <p>
+                            Well hello there! Thanks for trying out this project. The aim is to provide visualization
+                            for of the behavior of the agents learning by reinforcement on a variety of problems and
+                            using a variety of solvers.
+                        </p>
+                        <p>Start by picking one of the problem, solver and set of parameters below</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% end %}
+        <div id="top"></div>
+
+
+        <!-- CONTENT
+        =================================-->
+
+        {% block content %}
+        <!-- No content has been defined yet -->
+        {% end %}
+    </body>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="/static/jquery/jquery-1.11.1.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+    <script src="/static/custom/js/utils.js"></script>
+    {% block js %}
+    <!-- No custom JS has been added -->
+    {% end %}
+
+</html>
