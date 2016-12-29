@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% autoescape None %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="/static/custom/css/train.css">
+{% end %}
+
+{% block header %}
+<div class="jumbotron text-center">
+    <div class="container">
+        <div class="row">
+            <!-- Header - select problem and algorithm -->
+            <div class="col col-lg-12 col-sm-12">
+                <h1>RLViz<small> Agents Trainning </small></h1>
+                <p>
+                Use this interface to train agents running specific algorithm and one of the defined problem. Widgets can be added to inspect specific things about the agent state at the current state of the training progress. Trained
+                agents can finally be saved for later demo showcase.
+                </p>
+                <p>Start by picking one of the problem and solver below. You can start right away to train the agent or add one or many inspector widget (the progress bar is added by default).</p>
+            </div>
+            <div class="col col-xs-12 col-md-6 form-group">
+                <label for="select-problem">Pick a problem</label>
+                <select id="select-problem" class="form-control styled-select">
+                    {% for problem in problems %}
+                        <option value="{{problem}}" data-description="{{problemsDescription[problem]}}" data-state-space="{{problemsDomain[problem]['state']}}" data-action-space="{{problemsDomain[problem]['action']}}">{{problem}}</option>
+                    {% end %}
+                </select>
+            </div>
+            <div class="col col-xs-12 col-md-6 form-group">
+                <label for="select-algorithm">Pick an algorithm</label>
+                <select id="select-algorithm" class="form-control styled-select">
+                    {% for algo in algorithms %}
+                        <option value="{{algo}}" data-description="{{algorithmsDescription[algo]}}" data-state-space="{{algorithmsDomain[algo]['state']}}" data-action-space="{{algorithmsDomain[algo]['action']}}">{{algo}}</option>
+                    {% end %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Still header - override hyper parameters -->
+        <div class="row container-fluid hyper-parameters-override">
+            <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+              <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="headingOne">
+                  <h4 class="panel-title">
+                    <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                      Override hyper-parameters
+                    </a>
+                  </h4>
+                </div>
+                <div id="collapseOne" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingOne" style="height: 0px">
+                  <div class="panel-body" id="hyper-parameters-override">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% end %}
+
+{% block content %}
+<div class="container-fluid">
+    Data here
+</div>
+
+{% end %}
+
+{% block js %}
+<script src="/static/custom/js/train/hyperParametersPick.js"></script>
+<script src="/static/custom/js/train/main.js"></script>
+<script type="text/javascript">
+    // data that never changes after the rendering of the page
+    {% import json %}
+    window.STATIC_DATA = {
+        'algorithmsDomain': JSON.parse('{{ json.dumps(algorithmsDomain).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'algorithmsParams': JSON.parse('{{ json.dumps(algorithmsParams).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'algorithmsParamsDefault': JSON.parse('{{ json.dumps(algorithmsParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'algorithmsParamsDomain': {{ json.dumps(algorithmsParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},
+        'algorithmsParamsDescription': JSON.parse('{{ json.dumps(algorithmsParamsDescription).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'problemsDomain': JSON.parse('{{ json.dumps(problemsDomain).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'problemsParams': JSON.parse('{{ json.dumps(problemsParams).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'problemsParamsDefault': JSON.parse('{{ json.dumps(problemsParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'problemsParamsDomain': {{ json.dumps(problemsParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},
+        'problemsParamsDescription': JSON.parse('{{ json.dumps(problemsParamsDescription).replace("\'", "\\\'").replace("\\n", " ") }}'),
+    }
+    $(document).ready(function () {
+        new TrainComponent($('body'));
+    })
+</script>
+{% end %}

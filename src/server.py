@@ -2,6 +2,9 @@ import tornado.ioloop
 import tornado.web
 from tornado.web import RequestHandler, StaticFileHandler
 
+from algorithms import Algorithms
+from problems import Problems
+
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -9,17 +12,51 @@ class MainHandler(tornado.web.RequestHandler):
 
 
 class TemplateHandler(RequestHandler):
+    def renderTrain(self):
+        def mapper(classes, attr):
+            return {
+                cls.__name__: getattr(cls, attr)
+                for cls in classes
+            }
+
+        self.render(
+            'train.html',
+            active='train', algorithms=Algorithms.keys(),
+            algorithmsDescription=mapper(Algorithms.values(), '__doc__'),
+            algorithmsDomain=mapper(Algorithms.values(), 'DOMAIN'),
+            algorithmsParams=mapper(Algorithms.values(), 'PARAMS'),
+            algorithmsParamsDefault=mapper(Algorithms.values(), 'PARAMS_DEFAULT'),
+            algorithmsParamsDomain=mapper(Algorithms.values(), 'PARAMS_DOMAIN'),
+            algorithmsParamsDescription=mapper(Algorithms.values(), 'PARAMS_DESCRIPTION'),
+            problems=Problems.keys(),
+            problemsDescription=mapper(Problems.values(), '__doc__'),
+            problemsDomain=mapper(Problems.values(), 'DOMAIN'),
+            problemsParams=mapper(Problems.values(), 'PARAMS'),
+            problemsParamsDefault=mapper(Problems.values(), 'PARAMS_DEFAULT'),
+            problemsParamsDomain=mapper(Problems.values(), 'PARAMS_DOMAIN'),
+            problemsParamsDescription=mapper(Problems.values(), 'PARAMS_DESCRIPTION')
+        )
+
     def get(self, file=None):
         if file is None:
-            file = 'UI'
+            file = 'train'
 
-        self.render('%s.html' % file, active=file)
+        spec = {
+            'train': self.renderTrain,
+            'train/': self.renderTrain
+        }
+
+        if file in spec:
+            return spec[file]()
+
+        self.render(
+            '%s.html' % file, active=file)
 
 
 def make_app():
     return tornado.web.Application([
         (r"/", TemplateHandler),
-        (r"/tool/(.*)", TemplateHandler),
+        (r"/tool/(.*)/?", TemplateHandler),
         (r"/static/(.*)", StaticFileHandler, {"path": "./static/"}),
     ], template_path='./templates', debug=True)
 

@@ -8,6 +8,7 @@
 
         <!-- Bootstrap -->
         <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+        <link rel="stylesheet" href="/static/selectize/selectize.bootstrap3.css">
         <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
         <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
         <!--[if lt IE 9]>
@@ -45,7 +46,7 @@
                 <!-- Collect the nav links, forms, and other content for toggling -->
                 <div class="collapse navbar-collapse" id="-default-navbar-">
                     <ul class="nav navbar-nav">
-                        <li{% if active == 'UI'%} class="active" {% end %}><a href="/tool/ui/">UI</a></li>
+                        <li{% if active == 'train'%} class="active" {% end %}><a href="/tool/train/">train</a></li>
                     </ul>
                     <ul class="nav navbar-nav navbar-right">
                         <li><a href="#">Written by Romain G.</a></li>
@@ -58,21 +59,7 @@
         <!-- HEADER
         =================================-->
         {% block header %}
-        <div class="jumbotron text-center">
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col col-lg-12 col-sm-12">
-                        <h1>RLViz</h1>
-                        <p>
-                            Well hello there! Thanks for trying out this project. The aim is to provide visualization
-                            for of the behavior of the agents learning by reinforcement on a variety of problems and
-                            using a variety of solvers.
-                        </p>
-                        <p>Start by picking one of the problem, solver and set of parameters below</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+
         {% end %}
         <div id="top"></div>
 
@@ -85,7 +72,8 @@
         {% end %}
     </body>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="/static/jquery/jquery-1.11.1.min.js"></script>
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/selectize/selectize.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="/static/bootstrap/js/bootstrap.min.js"></script>
     <script src="/static/custom/js/utils.js"></script>

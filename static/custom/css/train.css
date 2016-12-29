@@ -1,0 +1,48 @@
+.styled-select {
+    text-align: left;
+}
+
+.styled-select .value {
+    font-size: 16px;
+    font-weight: bold;
+    display: block;
+    line-height: 35px;
+}
+
+.styled-select .description {
+    text-align: left;
+    font-size: 85%;
+    line-height: 16px;
+    font-style: italic;
+    display: block;
+}
+.styled-select .state-space:before {
+    content: 'States: ';
+}
+
+.styled-select .action-space:before {
+    content: 'Actions: ';
+}
+.styled-select .state-space:before,
+.styled-select .action-space:before {
+    color: grey;
+    font-weight: bold;
+    padding-left: 5px;
+    font-style: normal;
+}
+.styled-select .state-space,
+.styled-select .action-space {
+    font-size: 15px;
+    display: inline-block;
+    line-height: 35px;
+    width: 50%;
+    font-style: italic;
+}
+
+.hyper-parameters-override {
+    text-align: left;
+}
+
+.hyper-parameters-override .parameter-help {
+    margin-left: 15px;
+}
