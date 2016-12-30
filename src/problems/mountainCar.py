@@ -34,12 +34,12 @@ the car instantly on top left of the hill.
     }
 
     def __init__(self, **kwargs):
-        super(MountainCarCustom, self).__init_(**kwargs)
+        super(MountainCarCustom, self).__init__(**kwargs)
 
         self._lastObservation = None
 
     def step(self, action):
-        newObservation, reward, self._done, info = self._env.set(action)
+        newObservation, reward, self._done, info = self._env.step(action)
         if self._lastObservation is not None:
             # TODO: and lastObservation.position > left limit
             #       and speed > speed limit

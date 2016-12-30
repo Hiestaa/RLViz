@@ -10,7 +10,7 @@
         <div class="row">
             <!-- Header - select problem and algorithm -->
             <div class="col col-lg-12 col-sm-12">
-                <h1>RLViz<small> Agents Trainning </small></h1>
+                <h1>RLViz<small> Agents Training </small></h1>
                 <p>
                 Use this interface to train agents running specific algorithm and one of the defined problem. Widgets can be added to inspect specific things about the agent state at the current state of the training progress. Trained
                 agents can finally be saved for later demo showcase.
@@ -52,7 +52,12 @@
                 </div>
               </div>
             </div>
-
+        </div>
+        <!-- Final row: the train button -->
+        <div class="row">
+            <div class="col-xs-6 col-sm-4 col-lg-3 col-xs-push-6 col-sm-push-8 col-lg-push-9">
+                <button class="btn btn-primary btn-lg" id="submit">Train</button>
+            </div>
         </div>
     </div>
 </div>
@@ -61,13 +66,19 @@
 
 {% block content %}
 <div class="container-fluid">
-    Data here
+    <div class="container">
+        <div class="bs-callout bs-callout-info" id="callout-buttons-state-names">
+            <h4>Inspectors panel</h4>
+            <p>Inspectors enable to follow the evolution of the system from many different point of views. The simplest inspector, a progress bar, has already been added. Several more can be defined <em>before</em> or <em>after</em> the agent training begun.</p>
+        </div>
+    </div>
 </div>
 
 {% end %}
 
 {% block js %}
 <script src="/static/custom/js/train/hyperParametersPick.js"></script>
+<script src="/static/custom/js/train/agent.js"></script>
 <script src="/static/custom/js/train/main.js"></script>
 <script type="text/javascript">
     // data that never changes after the rendering of the page
@@ -83,6 +94,10 @@
         'problemsParamsDefault': JSON.parse('{{ json.dumps(problemsParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
         'problemsParamsDomain': {{ json.dumps(problemsParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},
         'problemsParamsDescription': JSON.parse('{{ json.dumps(problemsParamsDescription).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'agentParams': JSON.parse('{{ json.dumps(agentParams).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'agentParamsDefault': JSON.parse('{{ json.dumps(agentParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'agentParamsDomain': {{ json.dumps(agentParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},
+        'agentParamsDescription': JSON.parse('{{ json.dumps(agentParamsDescription).replace("\'", "\\\'").replace("\\n", " ") }}'),
     }
     $(document).ready(function () {
         new TrainComponent($('body'));

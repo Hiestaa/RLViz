@@ -1,9 +1,15 @@
+# -*- coding: utf8 -*-
+
+from __future__ import unicode_literals
+
 import tornado.ioloop
 import tornado.web
 from tornado.web import RequestHandler, StaticFileHandler
 
 from algorithms import Algorithms
 from problems import Problems
+from agent import Agent
+from agentTrainingHandler import AgentTrainingHandler
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -34,7 +40,11 @@ class TemplateHandler(RequestHandler):
             problemsParams=mapper(Problems.values(), 'PARAMS'),
             problemsParamsDefault=mapper(Problems.values(), 'PARAMS_DEFAULT'),
             problemsParamsDomain=mapper(Problems.values(), 'PARAMS_DOMAIN'),
-            problemsParamsDescription=mapper(Problems.values(), 'PARAMS_DESCRIPTION')
+            problemsParamsDescription=mapper(Problems.values(), 'PARAMS_DESCRIPTION'),
+            agentParams=Agent.PARAMS,
+            agentParamsDefault=Agent.PARAMS_DEFAULT,
+            agentParamsDomain=Agent.PARAMS_DOMAIN,
+            agentParamsDescription=Agent.PARAMS_DESCRIPTION
         )
 
     def get(self, file=None):
@@ -57,7 +67,8 @@ def make_app():
     return tornado.web.Application([
         (r"/", TemplateHandler),
         (r"/tool/(.*)/?", TemplateHandler),
-        (r"/static/(.*)", StaticFileHandler, {"path": "./static/"}),
+        (r"/static/(.*)/?", StaticFileHandler, {"path": "./static/"}),
+        (r"/subscribe/train/?", AgentTrainingHandler)
     ], template_path='./templates', debug=True)
 
 if __name__ == "__main__":

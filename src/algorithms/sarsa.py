@@ -89,16 +89,17 @@ class Sarsa(BaseAlgo):
         if not self._isSetup:
             raise AlgoException("Algorithm hasn't been setup yet.")
 
-    def pickAction(self, state, episodeI=None):
+    def pickAction(self, state, episodeI=None, optimize=False):
         """
         Returns the best action according to (for now) the e-greedy policy
         If episodeI is given, it should be the episode index. Used to
         update epsilon for the e-greedy polic
         """
         self._assertSetup()
-        return self._policy.pickAction(self.Q[state], episodeI=episodeI)
+        return self._policy.pickAction(
+            self._Q[state], episodeI=episodeI, optimize=optimize)
 
-    def step(self, oldState, newState, action, reward, episodeI, stepI):
+    def train(self, oldState, newState, action, reward, episodeI, stepI):
         """
         TD(0) policy improvement
         Returns the next action to take
@@ -114,7 +115,7 @@ class Sarsa(BaseAlgo):
         return newAction
 
 
-class RoundingSarsa(object):
+class RoundingSarsa(Sarsa):
     """
     Rouding sarsa discretizes the states space to enable sarsa to perform on
     continuous states space problems.
@@ -187,7 +188,7 @@ problem's observation space hold a high number dimensions."""
             np.linspace(
                 observationSpace.low[x],
                 observationSpace.high[x],
-                self._precision,
+                self.precision,
                 retstep=True)
             for x in xrange(len(observationSpace.low))
         ])
@@ -206,15 +207,16 @@ problem's observation space hold a high number dimensions."""
             self._threshold(observations[x], self._steps[x], x)
             for x in xrange(len(observations))])
 
-    def pickAction(self, state):
+    def pickAction(self, state, episodeI=None, optimize=False):
         self._assertSetup()
         state = self._round(state)
-        return super(RoundingSarsa, self).pickAction(state)
+        return super(RoundingSarsa, self).pickAction(
+            state, episodeI=episodeI, optimize=optimize)
 
-    def step(self, oldState, newState, action, reward, episodeI, stepI):
+    def train(self, oldState, newState, action, reward, episodeI, stepI):
         # simply calls SARSA's `step` function with rounded state values.
         self._assertSetup()
-        return super(RoundingSarsa, self).step(
+        return super(RoundingSarsa, self).train(
             self._round(oldState),
             self._round(newState),
             action, reward, episodeI, stepI)

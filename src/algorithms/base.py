@@ -82,7 +82,6 @@ class BaseAlgo(Parametizable):
     POLICY = Policies.EGreedy
 
     def __init__(self, **kwargs):
-        ""
         super(BaseAlgo, self).__init__(**kwargs)
 
         self._policy = self.POLICY(**kwargs)
@@ -108,7 +107,7 @@ class BaseAlgo(Parametizable):
         """
         pass
 
-    def step(self, prevState, nextState, action, reward, episodeI, stepI):
+    def train(self, prevState, nextState, action, reward, episodeI, stepI):
         """
         Called once for each step of each episode.
         A working implementation of this function is required when subclassing.
@@ -133,7 +132,7 @@ class BaseAlgo(Parametizable):
         """
         pass
 
-    def pickAction(self, state, episodeI):
+    def pickAction(self, state, episodeI, optimize=False):
         """
         Returns the best action to take in the given state according to the
         defined policy.

@@ -3,6 +3,41 @@
 from __future__ import unicode_literals
 
 
+def makeProgress(minp, maxp, _cb):
+    """
+    This will create and returns a function to be used to periodically update
+    the progression of some computation intensive task..
+    The returned function will take a parameter `current` and `maximum`, both
+    integers, where `current` is the current state of the progression, and
+    `maximum` is the maximum value `current` can have.
+    It will call the function given by `_cb` each time the progression
+    increased by one unit, giving it this progression value `p` bounded by
+    `minp` and `maxp`, the real progression value `current` and `maximum`,
+    the maximum value `current` can take.
+    This means that the smaller the range between `minp` and `maxp` is,
+    the less often `_cb` function will be called.
+    This is made to linearly notify the progression of a task only a few times.
+    Example of use (may be more understandable):
+        >>> def p(v, c, m): print v, c, m
+        >>> progress = makeProgress(20, 40, p)
+        >>> for i in xrange(1000):
+        >>>    progress(i, 1000)
+        20 0 1000
+        21 50 1000
+        22 100 1000
+        ...
+        39 950 1000
+    Note: additional parameters given to the built `progress` function will be
+    passed to the given callback `_cb`.
+    WARNING: This will not prevent from flooding the console if the same call
+    the `progress` is made many times with the same progress value!
+    """
+    def progress(c, m, *args, **kwargs):
+        if m < (maxp - minp) or c % (m / (maxp - minp)) == 0:
+            _cb(minp + c * (maxp - minp) / (m or 1), c, m, *args, **kwargs)
+    return progress
+
+
 def enum(*args, **kwargs):
     """
     Create an enumeration having the given values.

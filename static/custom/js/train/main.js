@@ -6,6 +6,8 @@ function TrainComponent($container) {
     self._selectizeProblem = null;
     self._selectizeAlgo = null;
 
+    self._agent = new Agent();
+
     self._createAlgosOptions = function () {
         return self._$container.find('#select-algorithm option').map(function () {
             return {
@@ -65,17 +67,30 @@ function TrainComponent($container) {
             },
             onItemAdd: self._onPickAlgo
         })
-        self._selectizeProblem = self._$container.find('#select-algorithm')[0].selectize;
+        self._selectizeAlgo = self._$container.find('#select-algorithm')[0].selectize;
 
-        self._hyperParametersOverride.renderProblemPick(problemOptions[0].value)
-        self._hyperParametersOverride.renderAlgoPick(algoOptions[0].value)
+        self._hyperParametersOverride.renderProblemPick(problemOptions[0].value);
+        self._hyperParametersOverride.renderAlgoPick(algoOptions[0].value);
+        self._hyperParametersOverride.renderAgentPick();
 
         // selectize weird display hack
         $('.selectize-input input')
             .css('opacity', '0')
             .css('position',  'absolute')
             .css('left', '-10000px;');
+
+        self._$container.find('#submit').click(self.onTrain);
     };
+
+    // called when clicking on the 'train' button;
+    self.onTrain = function () {
+        self._agent.train(
+            self._selectizeProblem.getValue(),
+            self._hyperParametersOverride.getProblemParams(),
+            self._selectizeAlgo.getValue(),
+            self._hyperParametersOverride.getAlgoParams(),
+            self._hyperParametersOverride.getAgentParams());
+    }
 
     self.initialize()
 }

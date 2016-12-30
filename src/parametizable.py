@@ -84,13 +84,11 @@ class Parametizable(object):
             domainValues = domain.get('values', [])
             domainRange = domain.get('range', (0, -1))
             if not (val in domain.get('values', []) or
-                    (val > domainRange[0] and val < domainRange[1])):
+                    (val >= domainRange[0] and val <= domainRange[1])):
                 raise ParametizableException(
                     "Out-of-domain parameter: %s (%s). Expected one of: %s or "
                     "within range %d, %d." % (name, str(val), str(domainValues),
                                               domainRange[0], domainRange[1]))
 
-        for name, val in self.PARAMS.iteritems():
-            setattr(self, name, kwargs.get(val) or self.PARAMS_DEFAULT[val])
-
-        self._policy = self.POLICY(**kwargs)
+        for name, typ in self.PARAMS.iteritems():
+            setattr(self, name, kwargs.get(name) or self.PARAMS_DEFAULT[name])

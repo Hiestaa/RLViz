@@ -53,9 +53,13 @@ class BaseProblem(Parametizable):
     }
 
     def __init__(self, **kwargs):
-        super(BaseProblem, self).__init__()
+        super(BaseProblem, self).__init__(**kwargs)
         self._done = False
         self._env = None
+
+    @property
+    def env(self):
+        return self._env
 
     def episodeDone(self, stepI):
         return any(
@@ -76,13 +80,14 @@ class BaseProblem(Parametizable):
         the reward, whether the episode is terminated and optionally
         some additional debug information.
         """
-        newObservation, reward, self._done, info = self._env.set(action)
+        newObservation, reward, self._done, info = self._env.step(action)
         return newObservation, reward, self._done, info
 
     def reset(self):
         """
         Reset the state of the environment for a new episode.
         """
+        self._done = False
         return self._env.reset()
 
     def render(self):
