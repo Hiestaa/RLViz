@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 from parametizable import Parametizable
-from consts import ParamsTypes, Spaces
+from consts import ParamsTypes, Spaces, Hooks
 
 
 class AgentException(Exception):
@@ -48,20 +48,16 @@ If the environment has rendering capabilities, this is the frequency with which\
  a rendered episode should happen. Rendering is done server-side. \
 Set to -1 to disable.",
         'delay': "\
-Delay in ms between steps. Set to 0 to disable delaying as well as \
+Delay in ms between steps. Set to 0 will disable delaying AS WELL AS \
 adding inspectors during training"
     }
 
-    def __init__(self, inspectors=None, **kwargs):
+    def __init__(self, inspectorsFactory=None, **kwargs):
         super(Agent, self).__init__(**kwargs)
 
         self._problem = None
         self._algo = None
-        self._inspectors = inspectors or []
-
-    @property
-    def inspectors(self):
-        return self._inspectors
+        self._inspectorsFactory = inspectorsFactory or []
 
     def _checkCompatibility(self, problem, algo):
         """
@@ -134,7 +130,11 @@ adding inspectors during training"
                 break
 
         if self.renderFreq != -1:
-            self._problem.render()
+            self._problem.render(close=True)
+
+        self._inspectorsFactory.dispatch(
+            Hooks.trainingProgress, self.nEpisodes,
+            self.nEpisodes, episodeReturn)
 
         yield episodeReturn, self._problem.maxSteps, True
 
@@ -178,7 +178,20 @@ adding inspectors during training"
                 done = self._problem.episodeDone(stepI=iStep)
 
                 if done:
+                    # this should do nothing if the window isn't opened yet
+                    self._problem.render(close=True)
                     break
 
             yield episodeReturn, iEpisode, self._problem.maxSteps, True
             self._algo.endEpisode(totalReturn=episodeReturn)
+            self._inspectorsFactory.dispatch(
+                Hooks.trainingProgress, iEpisode, self.nEpisodes, episodeReturn)
+
+    def release(self):
+        """
+        Release handles and memory before deletion.
+        Used notably to close opened windows server-side.
+        """
+        if self._problem is not None:
+            self._problem.terminate()
+            self._problem.release()

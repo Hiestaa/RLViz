@@ -5,15 +5,22 @@ It handles the communication protocols and dispatch messages sent by the server
 to the corresponding inspector.
 */
 
-function Agent() {
+function Agent($inspectorsPanel) {
     var self = this;
 
+    // stores all user-defined data for problem, algo and agent
+    // required to re-create the whole env upon disconnect
     self._problemName = null;
     self._problemParams = null;
     self._algoName = null;
     self._algoParams = null;
     self._agentParams = null;
-
+    // stores data for created inspector name and user-defined parameters
+    // inspector name + ':' + inspector uid
+    //      -> inspector picked param name
+    //          -> inspector picked param value
+    self._inspectorParams = {};
+    self._inspectorsManager = new InspectorsManager($inspectorsPanel, self);
     self._connection = null;
 
     self.initialize = function () {
@@ -27,12 +34,18 @@ function Agent() {
     }
 
     self._onMessage = function (message) {
-        console.log('Message: ', message);
+        routes = {
+            'inspect': self._inspectorsManager.dispatch
+        }
+        if (message.route && routes[message.route])
+            return routes[message.route](message);
+
+        console.error("Route " + route + " not found.", message);
     }
 
     self._waitForConnect = function (fn) {
         return function () {
-            if (self._connection == null) {
+            if (self._connection == null || !self._connection.isReady()) {
                 console.log('Agent command suspended.  Waiting for connection, will retry in 1s...');
                 return setTimeout(self._waitForConnect(fn), 1000);
             }
@@ -63,6 +76,20 @@ function Agent() {
         };
         console.log("Command: ", command);
 
+        self._connection.send(command);
+    });
+
+    self.registerInspector = self._waitForConnect(function (name, uid, params) {
+        var key = name + ':' + uid
+        self._inspectorParams[key] = params;
+
+        var command = {
+            'command': 'registerInspector',
+            'name': name,
+            'uid': uid,
+            'params': params
+        }
+        console.log("Command: ", command);
         self._connection.send(command);
     });
 

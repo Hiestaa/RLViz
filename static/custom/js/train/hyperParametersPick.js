@@ -107,7 +107,7 @@ function HyperParametersPick($container) {
     }
 }
 
-function ParamPicker($appendTo, id, type, domain, defaultVal, description) {
+function ParamPicker($appendTo, id, type, domain, defaultVal, description, widthCssClass) {
     var self = this;
 
     domain = {
@@ -123,7 +123,9 @@ function ParamPicker($appendTo, id, type, domain, defaultVal, description) {
         if (domain.range.length != 2)
             placeholder = 'Pick from the list';
 
-        self._$container = $('<div class="form-group col-md-3 col-sm-4 col-xs-6 col-lg-2">' +
+        var width = widthCssClass || 'col-md-3 col-sm-4 col-xs-6 col-lg-2'
+
+        self._$container = $('<div class="form-group' + width + '">' +
             '<label for="' + id + '">' + id +
             '<span class="glyphicon glyphicon-question-sign parameter-help" data-toggle="tooltip" title="' + description + '">' +
             '</span></label>' +

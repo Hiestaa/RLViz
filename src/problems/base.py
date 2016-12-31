@@ -61,6 +61,9 @@ class BaseProblem(Parametizable):
     def env(self):
         return self._env
 
+    def terminate(self):
+        self._done = True
+
     def episodeDone(self, stepI):
         return any(
             crit(self, stepI=stepI)
@@ -90,8 +93,14 @@ class BaseProblem(Parametizable):
         self._done = False
         return self._env.reset()
 
-    def render(self):
+    def render(self, close=False):
         """
         Render the environment (server-side)
         """
-        return self._env.render()
+        return self._env.render(close=close)
+
+    def release(self):
+        """
+        Release handles and memory if manual intervention is required.
+        """
+        pass

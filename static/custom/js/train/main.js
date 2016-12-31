@@ -6,7 +6,9 @@ function TrainComponent($container) {
     self._selectizeProblem = null;
     self._selectizeAlgo = null;
 
-    self._agent = new Agent();
+    self._agent = new Agent(self._$container.find('#inspectors-panel'));
+
+    self.dispatch
 
     self._createAlgosOptions = function () {
         return self._$container.find('#select-algorithm option').map(function () {

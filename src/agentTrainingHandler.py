@@ -11,7 +11,7 @@ from tornado.ioloop import PeriodicCallback
 from algorithms import Algorithms
 from problems import Problems
 from agent import Agent
-import utils
+from inspectors.factory import InspectorsFactory
 
 
 class AgentTrainingHandler(WebSocketHandler):
@@ -31,11 +31,15 @@ class AgentTrainingHandler(WebSocketHandler):
         self._currentTrain = None
         self._currentTest = None
         self._execPeriodicCallback = None
-        self._progress = None
+
+        self._inspectorsFactory = InspectorsFactory(self.write_message)
 
     def open(self):
         print("WebSocket opened")
 
+    #############################################
+    # TRAIN COMMAND SUB-ROUTINES
+    #############################################
     def _testingDone(self):
         if self._execPeriodicCallback is not None:
             self._execPeriodicCallback.stop()
@@ -70,20 +74,11 @@ class AgentTrainingHandler(WebSocketHandler):
             self.nextTestStep, self._agent.delay)
         self._execPeriodicCallback.start()
 
-    def _trainingProgress(self, pcVal, c, m, episodeReturn):
-        print "Training progress: %.1f%% (episode %d/%d) - return=%d" % (
-            float(pcVal) / 10, c, m, episodeReturn)
-
     def _nextTrainStep(self):
         if self._currentTrain is None or self._execPeriodicCallback is None:
             return
         try:
             accReturn, iEpisode, iStep, done = self._currentTrain.next()
-            if done:
-                # print "Training progress: episode %d/%d, return=%d" % (
-                #     iEpisode, self._agent.nEpisodes, accReturn)
-                self._progress(
-                    iEpisode, self._agent.nEpisodes, episodeReturn=accReturn)
         except StopIteration:
             self._trainingDone()
 
@@ -107,34 +102,57 @@ class AgentTrainingHandler(WebSocketHandler):
         # create a new agent. The agent will be setup on a new problem and will
         # solve using a new algorithm, but defined inspectors remain the same.
         # They will be setup for the new problem and algorithm later on.
+        if self._agent is not None:
+            self._agent.release()
         self._agent = Agent(
             # reuse inspectors setup on previous agent.
-            inspectors=self._agent.inspectors,
+            inspectorsFactory=self._inspectorsFactory,
             **message['agent']['params'])
 
         self._agent.setup(problem, algo)
 
         self._currentTrain = self._agent.train()
 
-        self._progress = utils.makeProgress(0, 1000, self._trainingProgress)
-
         if self._agent.delay == 0:
             for r, iE, iS, done in self._currentTrain:
-                if done:
-                    self._progress(iE, self._agent.nEpisodes, episodeReturn=r)
+                continue
             return self._trainingDone()
         self._execPeriodicCallback = PeriodicCallback(
             self._nextTrainStep, self._agent.delay)
         self._execPeriodicCallback.start()
 
+    def _registerInspectorCommand(self, message):
+        """
+        Called when receiving the command 'registerInspector'
+        Message expects to hold the fields.subfields:
+        * name: name of the inspector to register
+        * uid: uid for this inspector - will be transmitted with each message
+          sent by the created inspector instance.
+        * params; override parameter settings for the created inspector as a
+          mapping between parameter name and value.
+          None should be required (they all have a default value but it might
+          not be suited to the problem & algorithm the agent is running).
+          See the inspector class doc for more details about these.
+        """
+        self._inspectorsFactory.registerInspector(
+            message['name'], message['uid'], message.get('params', {}))
+
     def on_message(self, message):
+        """
+        All messages should at least hold the field 'command' plus any other
+        field required by the given command. See the corresponding command
+        function for more detail about these.
+        """
         message = json.loads(message)
 
         commands = {
-            'train': self._trainCommand
+            'train': self._trainCommand,
+            'registerInspector': self._registerInspectorCommand
         }
 
         if message.get('command') in commands:
+            print "[AgentTraining] Executing command: %s" % (
+                message.get('command'))
             return commands[message.get('command')](message)
 
         raise HTTPError("Unknown command: %s" % str(commands.get('command')))

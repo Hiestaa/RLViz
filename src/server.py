@@ -8,6 +8,7 @@ from tornado.web import RequestHandler, StaticFileHandler
 
 from algorithms import Algorithms
 from problems import Problems
+from inspectors import Inspectors
 from agent import Agent
 from agentTrainingHandler import AgentTrainingHandler
 
@@ -41,6 +42,12 @@ class TemplateHandler(RequestHandler):
             problemsParamsDefault=mapper(Problems.values(), 'PARAMS_DEFAULT'),
             problemsParamsDomain=mapper(Problems.values(), 'PARAMS_DOMAIN'),
             problemsParamsDescription=mapper(Problems.values(), 'PARAMS_DESCRIPTION'),
+            inspectors=Inspectors.keys(),
+            inspectorsDescription=mapper(Inspectors.values(), '__doc__'),
+            inspectorsParams=mapper(Inspectors.values(), 'PARAMS'),
+            inspectorsParamsDefault=mapper(Inspectors.values(), 'PARAMS_DEFAULT'),
+            inspectorsParamsDomain=mapper(Inspectors.values(), 'PARAMS_DOMAIN'),
+            inspectorsParamsDescription=mapper(Inspectors.values(), 'PARAMS_DESCRIPTION'),
             agentParams=Agent.PARAMS,
             agentParamsDefault=Agent.PARAMS_DEFAULT,
             agentParamsDomain=Agent.PARAMS_DOMAIN,

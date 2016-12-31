@@ -2,10 +2,7 @@
 
 from __future__ import unicode_literals
 
-
+import utils
 from sarsa import Sarsa, RoundingSarsa
 
-Algorithms = {
-    'Sarsa': Sarsa,
-    'RoundingSarsa': RoundingSarsa
-}
+Algorithms = utils.makeMapping([Sarsa, RoundingSarsa])

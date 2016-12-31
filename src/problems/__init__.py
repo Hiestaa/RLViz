@@ -3,8 +3,6 @@
 from __future__ import unicode_literals
 
 from mountainCar import MountainCar, MountainCarCustom
+import utils
 
-Problems = {
-    'MountainCar': MountainCar,
-    'MountainCarCustom': MountainCarCustom
-}
+Problems = utils.makeMapping([MountainCar, MountainCarCustom])

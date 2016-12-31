@@ -73,3 +73,12 @@ def enum(*args, **kwargs):
     enums = dict(zip(args, range(len(args))),
                  _fields=fields, **kwargs)
     return type(str('Enum'), (), enums)
+
+
+def makeMapping(classes):
+    """
+    Create a mapping between class name and actual classes.
+    """
+    return {
+        cls.__name__: cls for cls in classes
+    }

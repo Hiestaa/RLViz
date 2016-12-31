@@ -10,9 +10,9 @@
 //   This message will be a json-deserialized object.
 // Returns the send function that will also be given to the `onOpen` callback.
 function WSConnect(url, onOpen, onMessage) {
-    _interrupted = false
-    _ready = false
-    _conTimer = null;
+    var _interrupted = false
+    var _ready = false
+    var _conTimer = null;
 
     var socket = new WebSocket(url);
 
@@ -30,6 +30,9 @@ function WSConnect(url, onOpen, onMessage) {
         send: send,
         close: function () {
             socket.close()
+        },
+        isReady: function () {
+            return _ready && !_interrupted;
         }
     };
 

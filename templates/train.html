@@ -72,12 +72,14 @@
             <p>Inspectors enable to follow the evolution of the system from many different point of views. The simplest inspector, a progress bar, has already been added. Several more can be defined <em>before</em> or <em>after</em> the agent training begun.</p>
         </div>
     </div>
+    <div class="row" id="inspectors-panel"></div>
 </div>
 
 {% end %}
 
 {% block js %}
 <script src="/static/custom/js/train/hyperParametersPick.js"></script>
+<script src="/static/custom/js/train/inspectors.js"></script>
 <script src="/static/custom/js/train/agent.js"></script>
 <script src="/static/custom/js/train/main.js"></script>
 <script type="text/javascript">
@@ -94,6 +96,11 @@
         'problemsParamsDefault': JSON.parse('{{ json.dumps(problemsParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
         'problemsParamsDomain': {{ json.dumps(problemsParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},
         'problemsParamsDescription': JSON.parse('{{ json.dumps(problemsParamsDescription).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'inspectors': JSON.parse('{{ json.dumps(inspectors).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'inspectorsParams': JSON.parse('{{ json.dumps(inspectorsParams).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'inspectorsParamsDefault': JSON.parse('{{ json.dumps(inspectorsParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
+        'inspectorsParamsDomain': {{ json.dumps(inspectorsParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},
+        'inspectorsParamsDescription': JSON.parse('{{ json.dumps(inspectorsParamsDescription).replace("\'", "\\\'").replace("\\n", " ") }}'),
         'agentParams': JSON.parse('{{ json.dumps(agentParams).replace("\'", "\\\'").replace("\\n", " ") }}'),
         'agentParamsDefault': JSON.parse('{{ json.dumps(agentParamsDefault).replace("\'", "\\\'").replace("\\n", " ") }}'),
         'agentParamsDomain': {{ json.dumps(agentParamsDomain).replace("\'", "\\\'").replace("\\n", " ") }},

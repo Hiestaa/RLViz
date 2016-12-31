@@ -17,6 +17,10 @@ class MountainCar(BaseProblem):
         'state': Spaces.Continuous
     }
 
+    def release(self):
+        if self._env.viewer is not None:
+            self._env.viewer.close()
+
 
 class MountainCarCustom(BaseProblem):
     """
