@@ -7,6 +7,7 @@ import math
 
 import numpy as np
 
+import utils
 from algorithms.base import BaseAlgo, Spaces, ParamsTypes, AlgoException
 from algorithms.policies import Policies
 from algorithms.hints import (
@@ -36,7 +37,7 @@ class Sarsa(BaseAlgo):
             'range': (0, 1)
         },
         'alpha': {
-            'values': (0.1, 0.01, 0.001, 0.0001),
+            'values': (1.0, 0.1, 0.01, 0.001, 0.0001),
             'range': (0.00001, 1.0)
         },
         'gamma': {
@@ -47,7 +48,7 @@ class Sarsa(BaseAlgo):
 
     PARAMS_DEFAULT = {
         'epsilon': '1/k',
-        'alpha': 0.001,
+        'alpha': 1.0,
         'gamma': 1.0
     }
 
@@ -80,6 +81,11 @@ class Sarsa(BaseAlgo):
           each state being a tuple floats, all of the same length
         * allActions should be the list of possible actions
         """
+        # action-value function.
+        # For each possible state, this gives an indication to the agent of
+        # how good each possible action is.
+        # Initially set to 0, the value will increase or decrease based on
+        # the reward got as the agent is running episodes.
         self._Q = {
             state: {action: 0 for action in allActions}
             for state in allStates
@@ -100,19 +106,34 @@ class Sarsa(BaseAlgo):
         return self._policy.pickAction(
             self._Q[state], episodeI=episodeI, optimize=optimize)
 
+    def actionValue(self, state, action):
+        self._assertSetup()
+        return self._Q[state][action]
+
     def train(self, oldState, newState, action, reward, episodeI, stepI):
         """
         TD(0) policy improvement
         Returns the next action to take
+        TD(0) heavily relies on bootstrapping, which is the idea of learning
+        both from our experiences and from our trust of our own knowledge
+        of how good a state is from a given state/action pair onwards.
+        This recursivity enables 'goodness' information to 'flow' from the
+        state of achivement (where the agent realize a suite of actions were
+        good) towards the states of the first steps of the episode.
         """
         self._assertSetup()
         # sample a new action following e-greedy
         newAction = self.pickAction(newState, episodeI=episodeI)
-        # print "New action: ", newAction
+        # updates the action value function.
+        # we increase a little bit the value of Q for the old state and action
+        # we just took a little bit (=learning rate) ...
         self._Q[oldState][action] = self._Q[oldState][action] + self._a *\
-            (reward +
-             self._g * self._Q[newState][newAction] -
-             self._Q[oldState][action])
+            (reward -  # ... in the direction of the error between the
+             # reward we got and what we thought the reward would be
+             self._Q[oldState][action] +
+             # ... plus a factor of how good we think the next state will be
+             # (this is called 'bootstrapping')
+             self._g * self._Q[newState][newAction])
         return newAction
 
 
@@ -128,49 +149,22 @@ class RoundingSarsa(Sarsa):
         'state': Spaces.Continuous
     }
 
-    PARAMS = {
-        'epsilon': ParamsTypes.Number,
-        'alpha': ParamsTypes.Number,
-        'gamma': ParamsTypes.Number,
-        'precision': ParamsTypes.Number
-    }
+    PARAMS = utils.extends({}, precision=ParamsTypes.Number, **Sarsa.PARAMS)
 
-    PARAMS_DOMAIN = {
-        'epsilon': {
-            'values': ('1/k', '1/log(k)', '1/log(log(k))'),
-            'range': (0, 1)
-        },
-        'alpha': {
-            'values': (0.1, 0.01, 0.001, 0.0001),
-            'range': (0.00001, 1.0)
-        },
-        'gamma': {
-            'values': (0, 0.1, 0.5, 0.9, 1.0),
-            'range': (0, 1)
-        },
-        'precision': {
-            'values': (10, 100, 1000),
-            'range': (5, 10000)
-        }
-    }
+    PARAMS_DOMAIN = utils.extends({}, precision={
+        'values': (10, 100, 1000),
+        'range': (5, 10000)
+    }, **Sarsa.PARAMS_DOMAIN)
 
-    PARAMS_DEFAULT = {
-        'epsilon': '1/k',
-        'alpha': 0.001,
-        'gamma': 1.0,
-        'precision': 100
-    }
+    PARAMS_DEFAULT = utils.extends({}, precision=100, **Sarsa.PARAMS_DEFAULT)
 
-    PARAMS_DESCRIPTION = {
-        'epsilon': EPSILON_PARAMETER_HELP,
-        'gamma': GAMMA_PARAMETER_HELP,
-        'alpha': ALPHA_PARAMETER_HELP,
-        'precision': """
+    PARAMS_DESCRIPTION = utils.extends(
+        {}, precision="""
 Precision of the space discretization. This is the number of ticks or buckets
 in each dimension of the observations space. Recommanded value is 100, expect
 very long training time for values higher than this, especially when the
-problem's observation space hold a high number dimensions."""
-    }
+problem's observation space hold a high number dimensions.""",
+        **Sarsa.PARAMS_DEFAULT)
 
     POLICY = Policies.EGreedy
 
@@ -247,11 +241,21 @@ problem's observation space hold a high number dimensions."""
         except KeyError:
             if all(o < self._oshigh[dim] and o > self._oslow[dim]
                    for dim, o in enumerate(state)):
-                import ipdb; ipdb.set_trace()
                 print "Rounding error: ", state, 'to', rstate
             # we're likely out of bounds (it seems to happen)
             # just create a virtual state and pick a random policy
             return self._policy.pickRandom({a: 0 for a in self._allActions})
+
+    def actionValue(self, state, action):
+        self._assertSetup()
+        rstate = self._round(state)
+        try:
+            return super(RoundingSarsa, self).actionValue(rstate, action)
+        except KeyError:
+            if all(o < self._oshigh[dim] and o > self._oslow[dim]
+                   for dim, o in enumerate(state)):
+                print "Rounding error: ", state, 'to', rstate
+            return 0
 
     def train(self, oldState, newState, action, reward, episodeI, stepI):
         # simply calls SARSA's `step` function with rounded state values.
@@ -264,7 +268,6 @@ problem's observation space hold a high number dimensions."""
         except KeyError:
             if all(o < self._oshigh[dim] and o > self._oslow[dim]
                    for dim, o in enumerate(newState)):
-                import ipdb; ipdb.set_trace()
                 print "Rounding error: ", newState, 'to', self._round(newState)
             # we're likely out of bounds (it seems to happen)
             # just create a virtual state and pick a random policy

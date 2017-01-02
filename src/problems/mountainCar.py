@@ -22,8 +22,11 @@ class MountainCar(BaseProblem):
         if self._env.viewer is not None:
             self._env.viewer.close()
 
+    def getActionsList(self):
+        return range(self._env.action_space.n)
 
-class MountainCarCustom(BaseProblem):
+
+class MountainCarCustom(MountainCar):
     """
     Wraps up Gym's MountainCar-v0 environment
     This adds an additional constraint to the problem: the car recieves a
@@ -36,20 +39,22 @@ stronger negative reward when it ramps up the left side of the hill.
         'state': Spaces.Continuous
     }
 
-    PARAMS = utils.extends(BaseProblem.PARAMS, tolerance=ParamsTypes.Number)
+    PARAMS = utils.extends(
+        {}, tolerance=ParamsTypes.Number, **MountainCar.PARAMS)
 
-    PARAMS_DOMAIN = utils.extends(BaseProblem.PARAMS_DOMAIN, tolerance={
+    PARAMS_DOMAIN = utils.extends({}, tolerance={
         'range': (0, 100)
-    })
+    }, **MountainCar.PARAMS_DOMAIN)
 
-    PARAMS_DEFAULT = utils.extends(BaseProblem.PARAMS_DEFAULT, tolerance=10)
+    PARAMS_DEFAULT = utils.extends(
+        {}, tolerance=10, **MountainCar.PARAMS_DEFAULT)
 
     PARAMS_DESCRIPTION = utils.extends(
-        BaseProblem.PARAMS_DESCRIPTION,
+        {},
         tolerance="""
 Tolerance for the car to reach the left side - 100% means as soon as the car
 start ramping up left if receives a lower negative reward.
-""")
+""", **MountainCar.PARAMS_DESCRIPTION)
 
     def __init__(self, **kwargs):
         super(MountainCarCustom, self).__init__(**kwargs)

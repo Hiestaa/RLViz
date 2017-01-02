@@ -14,7 +14,7 @@ import numpy as np
 # implementation of the sarsa algorithm on the mountain car using values
 # rounding for value function approximation
 
-
+# Note: discarded because matplotlib was a bitch.
 # def plot(Q):
 #     """
 #     Plot the mountain car action value function.

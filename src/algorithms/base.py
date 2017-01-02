@@ -140,6 +140,13 @@ class BaseAlgo(Parametizable):
         """
         raise NotImplementedError()
 
+    def actionValue(self, state, action):
+        """
+        Returns a value indicating how good picking the given action in the
+        given state is.
+        """
+        return 0
+
     def dump(self):
         """
         Dump the algorithm into a data structure that can be later reloaded,

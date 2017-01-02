@@ -31,12 +31,13 @@ class BaseProblem(Parametizable):
 
     PARAMS_DOMAIN = {
         'maxSteps': {
-            'range': (-1, float('inf'))
-        }
+            'range': (-1, float('inf')),
+            'values': [100, 500, 1000]
+        },
     }
 
     PARAMS_DEFAULT = {
-        'maxSteps': 100
+        'maxSteps': 500
     }
 
     PARAMS_DESCRIPTION = {
@@ -104,3 +105,12 @@ class BaseProblem(Parametizable):
         Release handles and memory if manual intervention is required.
         """
         pass
+
+    def getActionsList(self, precision=10):
+        """
+        Returns the list of possible actions.
+        If the action space is continuous, then the `precision` should indicate
+        how many different action samples we should expect which should
+        be taken linearly along the possible actions range.
+        """
+        raise NotImplementedError()

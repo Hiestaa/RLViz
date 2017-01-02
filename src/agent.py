@@ -25,7 +25,7 @@ class Agent(Parametizable):
         },
         'renderFreq': {
             'range': (-1, float('inf')),
-            'values': [-1, 10, 1000, 10000]
+            'values': [-1, 10, 1000, 2000, 10000]
         },
         'delay': {
             'range': (0, 1000),
@@ -35,8 +35,8 @@ class Agent(Parametizable):
 
     PARAMS_DEFAULT = {
         'nEpisodes': 10000,
-        'renderFreq': 10000,
-        'delay': 0
+        'renderFreq': 2000,
+        'delay': 1
     }
 
     PARAMS_DESCRIPTION = {

@@ -13,7 +13,8 @@ function InspectorsManager($container, agent) {
 
     // inspector name -> widget class
     self._inspectorWidgets = {
-        'ProgressInspector': ProgressWidget
+        'ProgressInspector': ProgressWidget,
+        'ValueFunctionInspector': ValueFunctionWidget
     }
 
     // uid -> Inspector instance
@@ -32,20 +33,22 @@ function InspectorsManager($container, agent) {
     // renders the inspector selector at the bottom of the container.
     self.setupSelector = function () {
         self._$selector = $(
-            '<div class="col-xs-12 col-sm-6 col-md-4 col-lg-3 col-xl-2">' +
+            '<div class="col-xs-12">' +
             '<div class="panel panel-default">' +
             '   <div class="panel-heading">' +
             '       <h3 class="panel-title">Add Inspector</h3>' +
             '   </div>' +
             '   <div class="panel-body">' +
-            '       <div class="col-xs-12 form-group">' +
+            '       <div class="col-xs-12 col-sm-4 col-lg-3 form-group">' +
             '           <label for="select-inspector">Select Inspector</label>' +
             '           <select id="select-inspector"></select>' +
             '       </div>' +
-            '       <div class="col-xs-12" id="inspector-parameters"></div>' +
-            '       <div class="row"><div class="col-xs-6 col-xs-push-6">' +
+            '       <div class="col-xs-12"></div>' +
+            '       <div class="row" id="inspector-parameters"></div>' +
+            '       <div class="col-xs-12"></div>' +
+            '       <div style="float: right">' +
             '           <button class="btn btn-default" id="submit">Submit</button>' +
-            '       </div></div>' +
+            '       </div>' +
             '    </div>' +
             '</div></div>').appendTo(self._$container);
         self._$selector.find('#select-inspector').selectize({
@@ -66,6 +69,7 @@ function InspectorsManager($container, agent) {
     self.setupParams = function (name) {
         var params = Object.keys(STATIC_DATA.inspectorsParams[name]);
         var $inspectorParameters = self._$selector.find('#inspector-parameters');
+        self._paramPickers = {};
         for (var i = 0; i < params.length; i++) {
             var paramName = params[i]
             self._paramPickers[paramName] = new ParamPicker(
@@ -74,8 +78,7 @@ function InspectorsManager($container, agent) {
                 STATIC_DATA.inspectorsParams[name][paramName],
                 STATIC_DATA.inspectorsParamsDomain[name][paramName],
                 STATIC_DATA.inspectorsParamsDefault[name][paramName],
-                STATIC_DATA.inspectorsParamsDescription[name][paramName],
-                ' ');
+                STATIC_DATA.inspectorsParamsDescription[name][paramName]);
         }
     }
 
@@ -134,9 +137,12 @@ Yes. Because it shouldn't be as hard as it is with prototype and stuff.
 All inspectors should thus follow the same structure as the `ProgressInspector`,
 exlusion done of all methods starting with `_`.
 */
-function ProgressWidget($container) {
+function ProgressWidget($container, params) {
     var self = this;
 
+    // parameters are given as a key-value store, keys being the names of the
+    // parameters as defined in the corresponding inspector.
+    self._params = params;
     // save container, create widget, append to the container
     self._$container = $container;
     self._$widget = $(
@@ -171,5 +177,91 @@ function ProgressWidget($container) {
         self._$widget.find('#message').text(
             'Episode ' + message.iEpisode + ' / ' + message.nEpisodes +
             ' - Return = ' + message.episodeReturn);
+    }
+}
+
+function ValueFunctionWidget($container, params) {
+    var self = this;
+
+    // save container, create widget, append to the container
+    self._params = params
+    self._$container = $container;
+    self._$widget = $(
+        '<div class="col-xs-12 col-lg-6">' +
+        '<div class="panel panel-default">' +
+        '   <div class="panel-heading">' +
+        '       <h3 class="panel-title">Value Function</h3>' +
+        '   </div>' +
+        '   <div class="panel-body">' +
+        '       <div id="plot">' +
+        '   </div>' +
+        '</div>');
+    self._$container.prepend(self._$widget);
+
+    // Create and populate a data table.
+    self._data = new vis.DataSet();
+    var counter = 0;
+    var steps = self._params.precision;  // number of datapoints will be steps*steps
+    var xStepVal = 2 / steps
+    var yStepVal = 1.0 / steps
+    var xAxisMax = steps * xStepVal;
+    var yAxisMax = steps * yStepVal;
+    for (var x = 0; x < xAxisMax; x+=xStepVal) {
+        for (var y = 0; y < yAxisMax; y+=yStepVal) {
+            self._data.add({id:counter++,x:x,y:y,z:0,style:0});
+        }
+    }
+    var options = {
+        width:  (self._$widget.width() - 20) + 'px',
+        height: ((self._$widget.width() - 20) * 0.7) + 'px',
+        style: 'surface',
+        showPerspective: true,
+        showGrid: true,
+        showShadow: false,
+        keepAspectRatio: false,
+        verticalRatio: 0.5,
+        yCenter: '40%'
+    };
+    var graphContainer = document.getElementById('plot');
+    self._graph3d = new vis.Graph3d(graphContainer, self._data, options);
+    self._graph2d = null;
+
+    self._lastUpdate = null;
+    self._maxRefreshRate = self._params.precision * self._params.precision;
+    self._update = function (messageData) {
+        // todo: add sliders for param<I>, enable 2D drawing when shape is 2D
+        if (self._lastUpdate && new Date() - self._lastUpdate < self._maxRefreshRate) {
+            return;  // less than 1 update per seconds to keep reasonable performances
+        }
+        self._lastUpdate = new Date();
+        var update = []
+        self._t += 1;
+        for (var i = 0; i < messageData.length; i++) {
+            update.push({
+                id: i,
+                x: messageData[i].x,
+                y: messageData[i].y,
+                z: messageData[i].z,
+                style: messageData[i].z
+            });
+        }
+        self._data.update(update);
+    }
+    /*
+    Dispatch a message to this widget.
+    It is expected that the message holds the following fields:
+    * data: list of dicts,
+    * `x`: position on the x axis, this is the dimension 0 of the
+      state space
+    * [`y`: position on the y axis, only if `shape` is `3D`. This is
+       the dimension 1 of the state space, and will shift all dimension
+       numbers indicated below by 1 if present]
+    * `z`: corresponding value of the action value function for all other
+      parameters.
+    * `param<I>`: starting at 1, value of the ith dimension of the sample
+      of the state space (or (i+1)th dimension if plotting in 3D).
+    */
+    self.dispatch = function (message) {
+        self._update(message.data);
     }
 }

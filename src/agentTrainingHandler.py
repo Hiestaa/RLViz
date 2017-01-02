@@ -110,6 +110,7 @@ class AgentTrainingHandler(WebSocketHandler):
             **message['agent']['params'])
 
         self._agent.setup(problem, algo)
+        self._inspectorsFactory.setup(problem, algo, self._agent)
 
         self._currentTrain = self._agent.train()
 

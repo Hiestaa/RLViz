@@ -33,6 +33,15 @@ class Base(Parametizable):
         self.send = send
         self.uid = uid
 
+        self._problem = None
+        self._algo = None
+        self._agent = None
+
+    def setup(self, problem, algo, agent):
+        self._problem = problem
+        self._algo = algo
+        self._agent = agent
+
     def __call__(self, *args, **kwargs):
         """
         Call inspector using provided arguments.

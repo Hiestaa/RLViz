@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% autoescape None %}
 {% block css %}
+<link rel="stylesheet" type="text/css" href="/static/visjs/vis.min.css">
 <link rel="stylesheet" type="text/css" href="/static/custom/css/train.css">
 {% end %}
 
@@ -80,6 +81,7 @@
 {% end %}
 
 {% block js %}
+<script src="/static/visjs/vis.min.js"></script>
 <script src="/static/custom/js/train/hyperParametersPick.js"></script>
 <script src="/static/custom/js/alerts.js"></script>
 <script src="/static/custom/js/train/inspectors.js"></script>

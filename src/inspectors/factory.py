@@ -22,11 +22,25 @@ class InspectorsFactory(object):
         """
         super(InspectorsFactory, self).__init__()
 
-        self._inspectors = []
-        # event -> callbacks
+        # event -> inspector callable
         self._hookedUp = defaultdict(list)
 
+        self._agent = None
+        self._problem = None
+        self._algo = None
+
         self.send = send
+
+    def setup(self, problem, algo, agent):
+        """
+        Setup the inspectors to inspect the given problem, algo and agent.
+        """
+        self._agent = agent
+        self._problem = problem
+        self._algo = algo
+        for hook, inspectors in self._hookedUp.iteritems():
+            for inspector in inspectors:
+                inspector.setup(problem, algo, agent)
 
     def dispatch(self, hook, *args, **kwargs):
         """
@@ -47,4 +61,8 @@ class InspectorsFactory(object):
         details as to which inspector should be bound to which hook
         """
         inspector = Inspectors[name](self.send, uid, **params)
+        if self._agent is not None:
+            inspector.setup(self._problem, self._algo, self._agent)
+        else:
+            print "WARNING: Unable to setup inspector - factory isn't setup."
         self._hookedUp[inspector.HOOK].append(inspector)

@@ -1,5 +1,8 @@
 # RLViz
-A webapp based on tornado, gym and visjs for reinforcement learning algorithms visualisation
+A webapp based on tornado, gym and visjs for reinforcement learning algorithms visualisation.
+Currently support only value function display on most simple reinforcement learning algorithms. Should be improved in the near future.
+
+![Showcase](http://imgur.com/gallery/sFsPW)
 
 ## Goal
 

@@ -8,8 +8,6 @@ function TrainComponent($container) {
 
     self._agent = new Agent(self._$container.find('#inspectors-panel'));
 
-    self.dispatch
-
     self._createAlgosOptions = function () {
         return self._$container.find('#select-algorithm option').map(function () {
             return {
@@ -77,7 +75,7 @@ function TrainComponent($container) {
 
         // selectize weird display hack
         $('.selectize-input input')
-            .css('opacity', '0')
+            // .css('opacity', '0')
             .css('position',  'absolute')
             .css('left', '-10000px;');
 

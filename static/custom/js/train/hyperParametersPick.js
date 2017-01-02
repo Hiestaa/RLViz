@@ -158,6 +158,7 @@ function ParamPicker($appendTo, id, type, domain, defaultVal, description, width
         });
         self._selectize = self._$container.find('select')[0].selectize;
         self._$container.find('.parameter-help').tooltip({placement: 'top'})
+        self._$container.find('input').css('width', '0px');
     }
 
     self.getValue = function () {
