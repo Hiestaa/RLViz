@@ -9,7 +9,7 @@
 // * a callback to be called when a message is pushed from the server.
 //   This message will be a json-deserialized object.
 // Returns the send function that will also be given to the `onOpen` callback.
-function WSConnect(url, onOpen, onMessage) {
+function WSConnect(url, onOpen, onMessage, onClose) {
     var _interrupted = false
     var _ready = false
     var _conTimer = null;
@@ -45,10 +45,13 @@ function WSConnect(url, onOpen, onMessage) {
         _interrupted = true;
         if (_conTimer)
             clearTimeout(_conTimer);
-        if (e.code != 1000 /* normal closure */)
+        if (e.code != 1000 /* normal closure */) {
             _conTimer = setTimeout(function () {
-                WSConnect(url, onOpen, onMessage)
+                WSConnect(url, onOpen, onMessage, onClose);
             }, 2000);
+        }
+        if (onClose)
+            onClose()
     }
     socket.onmessage = function (event) {
         onMessage(JSON.parse(event.data));

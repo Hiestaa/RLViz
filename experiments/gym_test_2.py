@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 # import time
 import random
 import itertools
-import math
 # from collections import defaultdict
 
 import gym
@@ -70,7 +69,7 @@ class Sarsa(object):
         }
 
         self._e = 0.2  # epsilon, for the epsilon-greedy policy
-        self._a = 0.01  # alpha, learning reat
+        self._a = 1  # alpha, learning reat
         self._g = 0.5  # gamma, discount factor
 
     def pickAction(self, state, episodeI=None):
@@ -90,7 +89,7 @@ class Sarsa(object):
             return self._Q[state].keys()[random.randint(0, nbActions - 1)]
 
         if episodeI is not None:
-            self._e = 1.0 / (math.log(episodeI) or 1)
+            self._e = 1.0 / (episodeI or 1)
             # print "e=", self._e
 
         if random.random() > self._e:
@@ -182,7 +181,8 @@ for i_episode in range(1, 20001):
         newObservation, reward, done, info = env.step(action)
         episodeReturn += reward
 
-        action = agent.train(observation, newObservation, action, reward, i_episode)
+        action = agent.train(
+            observation, newObservation, action, reward, i_episode)
 
         observation = newObservation
 

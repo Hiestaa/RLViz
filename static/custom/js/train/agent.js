@@ -25,12 +25,29 @@ function Agent($inspectorsPanel) {
 
     self.initialize = function () {
         WSConnect(
-            'ws://localhost:8888/subscribe/train', self._onOpen, self._onMessage);
+            'ws://localhost:8888/subscribe/train',
+            self._onOpen, self._onMessage, self._onClose);
     }
 
     self._onOpen = function (connection) {
+        if (self._connection != null) {
+            alerts.hide();
+            alerts.success("Sucessfully reconnected! Inspectors will be re-created server-side, but any on-going training process will have to be restarted.")
+        }
         self._connection = connection;
-        console.log("Connection (re)opened");
+        console.log("Connection opened");
+
+        // register all inspectors again
+        for (var key in self._inspectorParams) {
+            var name = key.split(':')[0];
+            var uid = key.split(':')[1];
+            var params = self._inspectorParams[key];
+            self.registerInspector(name, uid, params);
+        }
+    }
+
+    self._onClose = function () {
+        alerts.danger("Connection Interrupted. Attempting to reconnect...");
     }
 
     self._onMessage = function (message) {

@@ -1,0 +1,45 @@
+{% autoescape None %}
+{#
+ Template to display an alert to the user, alternative design from alerts.html
+ Can be used by including it in any other template, or by
+ by a standalone rendering process.
+
+ * To include in another template, use the following syntax:
+   `{% module Template("alerts.html"}) %}`. The `assets/custom/js/alert.js` file should be also included as it provides a `alerts` object able to easily manipulate the alert
+ * If rendered by a standalone rendering process, it is expected to have the variable `alert` defined as a dict, with the following fields:
+     * `type`: type of the alert. Can be either 'danger', 'warning', 'info', 'success' or 'note'
+     * `messages`: the list of messages to display in this alert. Each message will be displayed on its own line.
+#}
+{% try %}
+  {% if alert['type'] is None %}
+    {% set types = ['success', 'info', 'danger', 'warning'] %}
+    {% set display = 'none' %}
+  {% else %}
+    {% set types = [alert['type']] %}
+    {% set display = 'block' %}
+  {% end %}
+  {% if alert['messages'] is None %}
+    {% set display = 'none' %}
+    {% set messages = [''] %}
+  {% else %}
+    {% set messages = alert['messages'] %}
+  {% end %}
+{% except %}{# a required field is missing or alert is not defined #}
+  {% set messages = [''] %}
+  {% set display = 'none' %}
+  {% set types = ['success', 'info', 'danger', 'warning'] %}
+{% end %}
+
+<div id="module-alerts"> <!-- Avoid conflict with other 'alert' class in the page, as this can be included in reporting -->
+  {% for type in types %}
+    <div class="row">
+      <div class="col-xs-12">
+        <div class="bs-callout bs-callout-{{type}}" id="{{type}}-alert" style="display: {{display}};">
+          {% for msg in messages %}
+            <p><span class="{{type}}-msg" id="{{type}}-msg">{{msg}}</span></p>
+          {% end %}
+        </div>
+      </div>
+    </div>
+  {% end %}
+</div>

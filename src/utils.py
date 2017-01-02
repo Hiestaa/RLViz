@@ -3,6 +3,17 @@
 from __future__ import unicode_literals
 
 
+def extends(dico, **kwargs):
+    """
+    Creates a new entry in the given `dico` for each given keyword argument.
+    This does NOT override any value if the field does already exist.
+    """
+    for field, value in kwargs.iteritems():
+        if field not in dico:
+            dico[field] = value
+    return dico
+
+
 def makeProgress(minp, maxp, _cb):
     """
     This will create and returns a function to be used to periodically update

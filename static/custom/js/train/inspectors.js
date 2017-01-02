@@ -89,7 +89,6 @@ function InspectorsManager($container, agent) {
         var uid = self.uid();
         self._inspectors[uid] = new self._inspectorWidgets[name](
             self._$container, params);
-        DYN_DATA = self._inspectors;
         self._agent.registerInspector(name, uid, params);
     }
 
@@ -123,8 +122,6 @@ function InspectorsManager($container, agent) {
         if (!self._inspectors[message.uid])
             return
         self._inspectors[message.uid].dispatch(message);
-        console.log(message.uid, DYN_DATA[message.uid]._$widget, self._inspectors[message.uid]._$widget);
-
     }
 
     self.initialize();
@@ -143,7 +140,7 @@ function ProgressWidget($container) {
     // save container, create widget, append to the container
     self._$container = $container;
     self._$widget = $(
-        '<div class="col-xs-12 col-sm-6 col-md-4 col-lg-3 col-xl-2">' +
+        '<div class="col-xs-12">' +
         '<div class="panel panel-default">' +
         '   <div class="panel-heading">' +
         '       <h3 class="panel-title">Progression</h3>' +

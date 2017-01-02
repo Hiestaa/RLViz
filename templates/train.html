@@ -71,7 +71,9 @@
             <h4>Inspectors panel</h4>
             <p>Inspectors enable to follow the evolution of the system from many different point of views. The simplest inspector, a progress bar, has already been added. Several more can be defined <em>before</em> or <em>after</em> the agent training begun.</p>
         </div>
+        {% module Template("alerts.html") %}
     </div>
+
     <div class="row" id="inspectors-panel"></div>
 </div>
 
@@ -79,6 +81,7 @@
 
 {% block js %}
 <script src="/static/custom/js/train/hyperParametersPick.js"></script>
+<script src="/static/custom/js/alerts.js"></script>
 <script src="/static/custom/js/train/inspectors.js"></script>
 <script src="/static/custom/js/train/agent.js"></script>
 <script src="/static/custom/js/train/main.js"></script>

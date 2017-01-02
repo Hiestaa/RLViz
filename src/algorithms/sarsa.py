@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import itertools
+import math
 
 import numpy as np
 
@@ -176,31 +177,61 @@ problem's observation space hold a high number dimensions."""
     def __init__(self, **kwargs):
         super(RoundingSarsa, self).__init__(**kwargs)
         self._p = self.precision
-        self._os = None
+        self._oslow = None
+        self._oshigh = None
+
+        self._allActions = []
 
     def setup(self, observationSpace, actionSpace, **kwargs):
         """
         `observationSpace` and `actionSpace` here are respectively
         gym's `Box` and `Discrete` instances.
         """
-        self._os = observationSpace
+        # will be updated with rounded values, but we need those values to
+        # round :p
+        self._oslow, self._oshigh = observationSpace.low, observationSpace.high
         values, self._steps = zip(*[
             np.linspace(
-                observationSpace.low[x],
-                observationSpace.high[x],
+                observationSpace.low[dim],
+                observationSpace.high[dim],
                 self.precision,
                 retstep=True)
-            for x in xrange(len(observationSpace.low))
+            for dim in xrange(len(observationSpace.low))
         ])
-        allStates = list(itertools.product(*values))
-        allActions = range(actionSpace.n)
+        self._oslow = [round(v, self._getNDigits(dim))
+                       for dim, v in enumerate(observationSpace.low)]
+        self._oshigh = [round(v, self._getNDigits(dim))
+                        for dim, v in enumerate(observationSpace.high)]
+        self._steps = [round(v, self._getNDigits(dim))
+                       for dim, v in enumerate(self._steps)]
+        rvalues = [
+            [round(self._oslow[dim] + n * self._steps[dim],
+                   self._getNDigits(dim))
+             for n, v in enumerate(linspace)]
+            for dim, linspace in enumerate(values)]
+        allStates = list(itertools.product(*rvalues))
+        self._allActions = range(actionSpace.n)
 
-        super(RoundingSarsa, self).setup(allStates, allActions)
+        super(RoundingSarsa, self).setup(allStates, self._allActions)
+
+    def _getNDigits(self, dim):
+        return int(
+            # log10(0.1) = -1, log10(0.01) = -2, etc...
+            round(math.log10(
+                abs(self._oslow[dim] - self._oshigh[dim]))) * -1 +
+            3)
 
     def _threshold(self, val, step, dim):
-        # warning: this assumes rounding started at 0 which may not be the case
-        return round(float(val - self._os.low[dim]) / step) * step + \
-            self._os.low[dim]
+        # round to something sane to avoid floating operation troubles
+        val = round(val, self._getNDigits(dim))
+        # translation to origin 0
+        val = val - self._oslow[dim]
+        # how much steps do we have in vals?
+        nb = round(val / step)
+
+        val = nb * step
+        # revert translation
+        return round(val + self._oslow[dim], self._getNDigits(dim))
 
     def _round(self, observations):
         return tuple([
@@ -209,14 +240,32 @@ problem's observation space hold a high number dimensions."""
 
     def pickAction(self, state, episodeI=None, optimize=False):
         self._assertSetup()
-        state = self._round(state)
-        return super(RoundingSarsa, self).pickAction(
-            state, episodeI=episodeI, optimize=optimize)
+        rstate = self._round(state)
+        try:
+            return super(RoundingSarsa, self).pickAction(
+                rstate, episodeI=episodeI, optimize=optimize)
+        except KeyError:
+            if all(o < self._oshigh[dim] and o > self._oslow[dim]
+                   for dim, o in enumerate(state)):
+                import ipdb; ipdb.set_trace()
+                print "Rounding error: ", state, 'to', rstate
+            # we're likely out of bounds (it seems to happen)
+            # just create a virtual state and pick a random policy
+            return self._policy.pickRandom({a: 0 for a in self._allActions})
 
     def train(self, oldState, newState, action, reward, episodeI, stepI):
         # simply calls SARSA's `step` function with rounded state values.
         self._assertSetup()
-        return super(RoundingSarsa, self).train(
-            self._round(oldState),
-            self._round(newState),
-            action, reward, episodeI, stepI)
+        try:
+            return super(RoundingSarsa, self).train(
+                self._round(oldState),
+                self._round(newState),
+                action, reward, episodeI, stepI)
+        except KeyError:
+            if all(o < self._oshigh[dim] and o > self._oslow[dim]
+                   for dim, o in enumerate(newState)):
+                import ipdb; ipdb.set_trace()
+                print "Rounding error: ", newState, 'to', self._round(newState)
+            # we're likely out of bounds (it seems to happen)
+            # just create a virtual state and pick a random policy
+            return self._policy.pickRandom({a: 0 for a in self._allActions})

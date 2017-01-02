@@ -37,6 +37,8 @@ to expect during the course of the execution."
         self._sendProgress = utils.makeProgress(
             0, self.frequency, self._progress)
 
+        self._progress(0, 0, 0, 0)
+
     def _progress(self, pcVal, iEpisode, nEpisodes, episodeReturn):
         """
         Called to report execution progress.
