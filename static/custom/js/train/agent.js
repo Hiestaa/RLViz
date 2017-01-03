@@ -93,6 +93,7 @@ function Agent($inspectorsPanel) {
         };
         console.log("Command: ", command);
 
+        self._inspectorsManager.newSession(command);
         self._connection.send(command);
     });
 

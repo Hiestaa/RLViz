@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import time
+
 from parametizable import Parametizable
 from consts import ParamsTypes, Spaces, Hooks
 
@@ -103,6 +105,9 @@ adding inspectors during training"
         action = self._algo.pickAction(
             state, self.nEpisodes, optimize=True)
         episodeReturn = 0
+        startT = time.time()
+        iStep = 0
+        didRender = False
 
         self._algo.startEpisode(state)
 
@@ -110,6 +115,7 @@ adding inspectors during training"
 
         for iStep in xrange(self._problem.maxSteps):
             if self.renderFreq != -1:
+                didRender = True
                 self._problem.render()
 
             newState, reward, _, info = self._problem.step(action)
@@ -129,12 +135,14 @@ adding inspectors during training"
             if done:
                 break
 
-        if self.renderFreq != -1:
+        if didRender:
             self._problem.render(close=True)
 
+        duration = time.time() - startT
         self._inspectorsFactory.dispatch(
             Hooks.trainingProgress, self.nEpisodes,
-            self.nEpisodes, episodeReturn)
+            self.nEpisodes, episodeReturn, iStep,
+            duration if not didRender else 0)
 
         yield episodeReturn, self._problem.maxSteps, True
 
@@ -149,9 +157,12 @@ adding inspectors during training"
         information about the execution of the environment.
         """
         for iEpisode in xrange(0, self.nEpisodes):
+            startT = time.time()
+            timeSpentRendering = 0
             state = self._problem.reset()
             action = self._algo.pickAction(state, iEpisode)
             episodeReturn = 0
+            didRender = False
 
             self._algo.startEpisode(state)
 
@@ -159,7 +170,8 @@ adding inspectors during training"
                 if self.renderFreq != -1:
                     if self.renderFreq == 0 or (
                             self.renderFreq > 0 and
-                            (iEpisode) % self.renderFreq == 0):
+                            (iEpisode - 1) % self.renderFreq == 0):
+                        didRender = True
                         self._problem.render()
 
                 newState, reward, _, info = self._problem.step(action)
@@ -178,14 +190,16 @@ adding inspectors during training"
                 done = self._problem.episodeDone(stepI=iStep)
 
                 if done:
-                    # this should do nothing if the window isn't opened yet
-                    self._problem.render(close=True)
+                    if didRender:
+                        self._problem.render(close=True)
                     break
 
+            duration = time.time() - startT - timeSpentRendering
             yield episodeReturn, iEpisode, self._problem.maxSteps, True
             self._algo.endEpisode(totalReturn=episodeReturn)
             self._inspectorsFactory.dispatch(
-                Hooks.trainingProgress, iEpisode, self.nEpisodes, episodeReturn)
+                Hooks.trainingProgress, iEpisode, self.nEpisodes,
+                episodeReturn, iStep, duration if not didRender else 0)
 
     def release(self):
         """

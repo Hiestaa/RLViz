@@ -74,7 +74,6 @@ class Parametizable(object):
 
         for name, val in kwargs.iteritems():
             if name not in self.PARAMS:
-                import ipdb; ipdb.set_trace()
                 raise ParametizableException("Unexpected parameter: %s" % name)
 
             if name not in self.PARAMS_DOMAIN:

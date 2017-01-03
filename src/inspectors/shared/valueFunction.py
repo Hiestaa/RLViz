@@ -76,7 +76,7 @@ function, we need a way to reduce all action-values to a single values."
 
     def setup(self, problem, algo, agent):
         super(ValueFunctionInspector, self).setup(problem, algo, agent)
-        self._notify(0, 0, 0, 0)
+        self._notify(0, 0, 0)
 
     def getKeys(self, nbDims):
         if nbDims == 1:
@@ -133,7 +133,7 @@ function, we need a way to reduce all action-values to a single values."
             for state in allParams
         ]
 
-    def _notify(self, pcVal, iEpisode, nEpisodes, episodeReturn):
+    def _notify(self, pcVal, iEpisode, nEpisodes):
         """
         Notification messages will hold the following fields:
         * route:
@@ -185,11 +185,10 @@ function, we need a way to reduce all action-values to a single values."
             'stepSizes': stepSizes
         })
 
-    def __call__(self, iEpisode, nEpisodes, episodeReturn):
+    def __call__(self, iEpisode, nEpisodes, *args, **kwargs):
         """
         Report execution progress following the defined frequency.
         Depending on the number of episodes. some calls will be ignored
         to follow user-defined frequency.
         """
-        self._notifyIfNotTooFrequent(
-            iEpisode, nEpisodes, episodeReturn=episodeReturn)
+        self._notifyIfNotTooFrequent(iEpisode, nEpisodes)

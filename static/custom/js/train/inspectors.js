@@ -14,7 +14,8 @@ function InspectorsManager($container, agent) {
     // inspector name -> widget class
     self._inspectorWidgets = {
         'ProgressInspector': ProgressWidget,
-        'ValueFunctionInspector': ValueFunctionWidget
+        'ValueFunctionInspector': ValueFunctionWidget,
+        'EfficiencyInspector': EfficiencyWidget
     }
 
     // uid -> Inspector instance
@@ -127,6 +128,13 @@ function InspectorsManager($container, agent) {
         self._inspectors[message.uid].dispatch(message);
     }
 
+    // notifies all inspectors that we're going to train a new agent.
+    self.newSession = function (command) {
+        for (var uid in self._inspectors) {
+            self._inspectors[uid].newSession(command);
+        }
+    }
+
     self.initialize();
 }
 
@@ -178,6 +186,17 @@ function ProgressWidget($container, params) {
             'Episode ' + message.iEpisode + ' / ' + message.nEpisodes +
             ' - Return = ' + message.episodeReturn);
     }
+
+    /*
+    Notifies the inspector widget that a new training session just started.
+    `command` is the command sent to the server. See `agent.js`.
+    */
+    self.newSession = function (command) {
+        self._$widget.find('.progress-bar')
+            .attr('aria-valuenow', '0')
+            .css('width', '0%');
+        self._$widget.find('#message').text('Episode 0 / 0 - Return = 0');
+    }
 }
 
 function ValueFunctionWidget($container, params) {
@@ -190,20 +209,21 @@ function ValueFunctionWidget($container, params) {
     self._slidersValues = {};  // contains list of ordered unique values each parameter can have
     self._lastMessage = null;
 
+    self._$widget = $('<div class="col-xs-12 col-lg-6"></div>');
+    self._$container.prepend(self._$widget)
+
     // Create and populate a data table.
     self._setup3D = function () {
-        self._$widget = $(
-            '<div class="col-xs-12 col-lg-6">' +
+        self._$widget.html(
             '<div class="panel panel-default">' +
             '   <div class="panel-heading">' +
-            '       <h3 class="panel-title">Value Function</h3>' +
+            '       <h3 class="panel-title">Value Function (3D)</h3>' +
             '   </div>' +
             '   <div class="panel-body">' +
             '       <div id="plot"></div>' +
             '       <div id="sliders"></div>' +
             '   </div>' +
             '</div>');
-        self._$container.prepend(self._$widget);
         self._data = new vis.DataSet();
         var counter = 0;
         var steps = self._params.precision;  // number of datapoints will be steps*steps
@@ -233,20 +253,17 @@ function ValueFunctionWidget($container, params) {
     }
 
     self._setup2D = function () {
-        if (self._params.shape == '2D')
-
-        self._$widget = $(
+        self._$widget.html(
             '<div class="col-xs-12 col-lg-6">' +
             '<div class="panel panel-default">' +
             '   <div class="panel-heading">' +
-            '       <h3 class="panel-title">Value Function</h3>' +
+            '       <h3 class="panel-title">Value Function (2D)</h3>' +
             '   </div>' +
             '   <div class="panel-body">' +
             '       <canvas id="plot"/>' +
             '       <div id="sliders"></div>' +
             '   </div>' +
-            '</div>');
-        self._$container.prepend(self._$widget);
+            '</div></div>');
 
         var data = [];
         var counter = 0
@@ -470,5 +487,132 @@ function ValueFunctionWidget($container, params) {
         self._lastMessage = message;
         self._setupSliders(message);
         self._update(message.data, message.nbDims, message.iEpisode, force);
+    }
+
+    self.newSession = function (command) {
+        if (self._params.shape == '2D')
+            self._setup2D();
+        else
+            self._setup3D();
+    }
+}
+
+function EfficiencyWidget($container, params) {
+    var self = this;
+
+    // parameters are given as a key-value store, keys being the names of the
+    // parameters as defined in the corresponding inspector.
+    self._params = params;
+    // save container, create widget, append to the container
+    self._$container = $container;
+    self._$widget = $('<div class="col-xs-12 col-lg-6"></div>');
+    self._$container.prepend(self._$widget);
+    self._nbRuns = 0
+    self._runColors = [
+        '#0021E5',
+        // '#003FE3',
+        // '#005DE1',
+        '#007BDF',
+        // '#0098DD',
+        // '#00B4DB',
+        '#00D0D9',
+        // '#00D7C1',
+        // '#00D5A3',
+        '#00D384',
+        // '#00D167',
+        // '#00CF49',
+        '#00CD2D',
+        // '#00CB11',
+        // '#0AC900',
+        '#25C700',
+        // '#3FC500',
+        // '#59C300',
+        '#73C100',
+        // '#8BBF00'
+    ];
+
+    self._setup = function () {
+        self._nbRuns = 0;
+        self._$widget.html(
+            '<div class="panel panel-default">' +
+            '   <div class="panel-heading">' +
+            '       <h3 class="panel-title">Training Efficiency (' + self._params.metric + ')</h3>' +
+            '   </div>' +
+            '   <div class="panel-body">' +
+            '       <canvas id="plot"/>' +
+            '       <div id="sliders"></div>' +
+            '   </div>' +
+            '</div>');
+
+        var graphContainer = self._$widget.find('#plot')[0];
+
+        self._graph2d = new Chart(graphContainer, {
+            type: 'line',
+            data: {
+                datasets: []
+            },
+            options: {
+                scales: {
+                    xAxes: [{
+                        type: 'linear',
+                        position: 'bottom'
+                    }]
+                }
+            }
+        });
+    }
+
+    self._setup();
+
+
+    self._addDataset = function () {
+        self._graph2d.data.datasets.push({
+            label: self._params.metric + ' per episode (run ' + (self._nbRuns + 1) + ')' ,
+            data: [],
+            borderColor: self._runColors[self._nbRuns],
+            pointColor: self._runColors[self._nbRuns],
+            borderWidth: 1,
+            pointBorderWidth: 1,
+            pointRadius: 1
+        });
+        self._graph2d.update();
+        self._nbRuns++;
+    }
+
+    self._getMetricData = function (message, metric) {
+        var mapping = {
+            'Return': 'episodeReturn',
+            'Steps': 'episodeSteps',
+            'Time': 'episodeDuration'
+        }
+        return message[mapping[metric] || 'episodeSteps'];
+    }
+
+    /*
+    Dispatch a message to this widget.
+    It is expected that the message holds the following fields:
+    * pcVal: Percentage value of the progression, range [0-100],
+    * iEpisode: i-th episode of the run,
+    * nEpisodes: total number of episodes this run,
+    * episodeReturn: total return for the i-th episode
+    * episodeSteps: total number of steps in the i-th episode
+    * episodeDuration: total time it took to generate this episode.
+    */
+    self.dispatch = function (message) {
+        if (!self._graph2d.data.datasets[self._nbRuns - 1]) {
+            // quick dirty setup in case we add the inspector while the process is ongoing
+            self._setup();
+        }
+        self._graph2d.data.datasets[self._nbRuns - 1].data.push({
+            x: message.iEpisode,
+            y: self._getMetricData(message, self._params.metric)
+        });
+        self._graph2d.update();
+    }
+
+    self.newSession = function (command) {
+        if (self._params.reset)
+            self._setup();
+        self._addDataset();
     }
 }

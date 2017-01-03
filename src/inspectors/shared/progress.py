@@ -63,7 +63,7 @@ to expect during the course of the execution."
             'episodeReturn': episodeReturn
         })
 
-    def __call__(self, iEpisode, nEpisodes, episodeReturn):
+    def __call__(self, iEpisode, nEpisodes, episodeReturn, *args, **kwargs):
         """
         Report execution progress following the defined frequency.
         Depending on the number of episodes. some calls will be ignored

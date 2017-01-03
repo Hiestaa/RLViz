@@ -165,6 +165,8 @@ function ParamPicker($appendTo, id, type, domain, defaultVal, description, width
         var value = self._selectize.getValue()
         if (type == 'Number' && domain.values.indexOf(value) == -1)
             return parseFloat(value)
+        if (type == 'Boolean' && ['1', 1, '0', 0].indexOf(value) >= 0)
+            return Boolean(parseInt(value));
         return value;
     }
 
