@@ -186,56 +186,195 @@ function ValueFunctionWidget($container, params) {
     // save container, create widget, append to the container
     self._params = params
     self._$container = $container;
-    self._$widget = $(
-        '<div class="col-xs-12 col-lg-6">' +
-        '<div class="panel panel-default">' +
-        '   <div class="panel-heading">' +
-        '       <h3 class="panel-title">Value Function</h3>' +
-        '   </div>' +
-        '   <div class="panel-body">' +
-        '       <div id="plot">' +
-        '   </div>' +
-        '</div>');
-    self._$container.prepend(self._$widget);
+    self._sliders = {};  // contains slider instances
+    self._slidersValues = {};  // contains list of ordered unique values each parameter can have
+    self._lastMessage = null;
 
     // Create and populate a data table.
-    self._data = new vis.DataSet();
-    var counter = 0;
-    var steps = self._params.precision;  // number of datapoints will be steps*steps
-    var xStepVal = 2 / steps
-    var yStepVal = 1.0 / steps
-    var xAxisMax = steps * xStepVal;
-    var yAxisMax = steps * yStepVal;
-    for (var x = 0; x < xAxisMax; x+=xStepVal) {
-        for (var y = 0; y < yAxisMax; y+=yStepVal) {
-            self._data.add({id:counter++,x:x,y:y,z:0,style:0});
+    self._setup3D = function () {
+        self._$widget = $(
+            '<div class="col-xs-12 col-lg-6">' +
+            '<div class="panel panel-default">' +
+            '   <div class="panel-heading">' +
+            '       <h3 class="panel-title">Value Function</h3>' +
+            '   </div>' +
+            '   <div class="panel-body">' +
+            '       <div id="plot"></div>' +
+            '       <div id="sliders"></div>' +
+            '   </div>' +
+            '</div>');
+        self._$container.prepend(self._$widget);
+        self._data = new vis.DataSet();
+        var counter = 0;
+        var steps = self._params.precision;  // number of datapoints will be steps*steps
+        var xStepVal = 2 / steps
+        var yStepVal = 1.0 / steps
+        var xAxisMax = steps * xStepVal;
+        var yAxisMax = steps * yStepVal;
+        for (var x = 0; x < xAxisMax; x+=xStepVal) {
+            for (var y = 0; y < yAxisMax; y+=yStepVal) {
+                self._data.add({id:counter++,x:x,y:y,z:0,style:0});
+            }
         }
+        var options = {
+            width:  (self._$widget.width() - 20) + 'px',
+            height: ((self._$widget.width() - 20) * 0.7) + 'px',
+            style: 'surface',
+            showPerspective: true,
+            showGrid: true,
+            showShadow: false,
+            keepAspectRatio: false,
+            verticalRatio: 0.5,
+            yCenter: '40%'
+        };
+        var graphContainer = self._$widget.find('#plot')[0];
+        self._graph3d = new vis.Graph3d(graphContainer, self._data, options);
+        self._graph2d = null;
     }
-    var options = {
-        width:  (self._$widget.width() - 20) + 'px',
-        height: ((self._$widget.width() - 20) * 0.7) + 'px',
-        style: 'surface',
-        showPerspective: true,
-        showGrid: true,
-        showShadow: false,
-        keepAspectRatio: false,
-        verticalRatio: 0.5,
-        yCenter: '40%'
-    };
-    var graphContainer = document.getElementById('plot');
-    self._graph3d = new vis.Graph3d(graphContainer, self._data, options);
-    self._graph2d = null;
 
-    self._lastUpdate = null;
-    self._maxRefreshRate = self._params.precision * self._params.precision;
-    self._update = function (messageData) {
-        // todo: add sliders for param<I>, enable 2D drawing when shape is 2D
-        if (self._lastUpdate && new Date() - self._lastUpdate < self._maxRefreshRate) {
-            return;  // less than 1 update per seconds to keep reasonable performances
+    self._setup2D = function () {
+        if (self._params.shape == '2D')
+
+        self._$widget = $(
+            '<div class="col-xs-12 col-lg-6">' +
+            '<div class="panel panel-default">' +
+            '   <div class="panel-heading">' +
+            '       <h3 class="panel-title">Value Function</h3>' +
+            '   </div>' +
+            '   <div class="panel-body">' +
+            '       <canvas id="plot"/>' +
+            '       <div id="sliders"></div>' +
+            '   </div>' +
+            '</div>');
+        self._$container.prepend(self._$widget);
+
+        var data = [];
+        var counter = 0
+        var steps = self._params.precision;  // number of datapoints will be steps*steps
+        var xStepVal = 2 / steps
+        var xAxisMax = steps * xStepVal;
+        for (var x = 0; x < xAxisMax; x+=xStepVal) {
+            data.push({x: x, y: 0});
         }
-        self._lastUpdate = new Date();
+
+        var options = {}
+        var graphContainer = self._$widget.find('#plot')[0];
+        self._graph3d = null;
+        self._graph2d = new Chart(graphContainer, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: "Learned Value Function",
+                    data: data,
+                    borderColor: '#00B6D9',
+                    pointColor: '#00B6D9'
+                }]
+            },
+            options: {
+                scales: {
+                    xAxes: [{
+                        type: 'linear',
+                        position: 'bottom'
+                    }]
+                }
+            }
+        });
+    }
+
+    if (self._params.shape == '2D')
+        self._setup2D();
+    else
+        self._setup3D();
+
+    // designed to be called for each message
+    // this will discard all sliders not part of the message data, add any that
+    // may not be present yet, and do nothing otherwise.
+    self._setupSliders = function (message) {
+        params = Object.keys(message.low);
+
+        // do we need to delete anything?
+        for (var param in self._sliders) {
+            // a slider exist for a parameter that is not part of the message
+            if (!message.low[param]) {
+                // discard all sliders
+                self._$widget.find('#sliders').html('');
+                self._sliders = {};
+                self._slidersValues = {};
+                break;
+            }
+
+        };
+
+        // now gather all unique values that exist for each parameter
+        allValues = {}
+        for (var i = 0; i < params.length; i++) {
+            var param = params[i];
+            if (param == 'x' || param == 'y' || param == 'z')
+                continue;
+            if (self._$widget.find('#sliders #' + param).length)
+                continue;
+            allValues[param] = {}
+        }
+        if (Object.keys(allValues).length == 0)
+            return;  // stop if no slider should be added
+
+        for (var i = 0; i < message.data.length; i++) {
+            var item = message.data[i];
+            for (var prop in item) {
+                if (allValues[prop]) {
+                    if (allValues[prop][item[prop]])
+                        allValues[prop][item[prop]] += item.z
+                    else
+                        allValues[prop][item[prop]] = item.z
+                }
+            }
+        }
+        // need a closure here
+        Object.keys(allValues).forEach(function (param) {
+            var vals = Object.keys(allValues[param]).map(parseFloat).sort(function (a, b) { return a - b });
+            var current = vals.length / 2;
+            var min = message.low[param];
+            var max = message.high[param];
+            var step = message.stepSizes[param];
+
+            self._$widget.find('#sliders').append(
+                '<b>' + param + ': </b>' +
+                '<input type="text" class="span12" value="' + current + '" id="' + param + '" ><br/>'
+            );
+            self._sliders[param] = self._$widget.find('#sliders #' + param).slider({
+                min: 0,
+                max: vals.length,
+                step: 1,
+                value: current,
+                formater: function (idx) {
+                    return vals[Math.min(idx, vals.length)]
+                }
+            }).on('slide', function () {
+                self.dispatch(self._lastMessage, true)
+            });
+            self._slidersValues[param] = vals;
+        });
+    }
+
+    self._getFixedParams = function () {
+        var fixed = {}
+        Object.keys(self._sliders).forEach(function (param) {
+            var idx = parseInt(self._sliders[param][0].value);
+            fixed[param] = self._slidersValues[param][
+                Math.min(idx, self._slidersValues[param].length)];
+            console.log("Param " + param + " slider value = " + idx + ', actual value = ', fixed[param])
+        });
+        return fixed
+    }
+
+    self._update3D = function (messageData, nbDims, iEpisode) {
         var update = []
-        self._t += 1;
+        // TODO: when there is more parameters than what can be displayed
+        // we should show sliders to set the value of non-plotted dimensions
+        var fixedParams = {}
+        if (nbDims > 2) {
+            fixedParams = {}
+        }
         for (var i = 0; i < messageData.length; i++) {
             update.push({
                 id: i,
@@ -247,21 +386,89 @@ function ValueFunctionWidget($container, params) {
         }
         self._data.update(update);
     }
+
+    // tells the `update2D` function whether a point should be skipped.
+    // We'll only plot points that have all their 'param' attributes equal to
+    // the given `fixedParams`
+    self._shouldSkip = function (messageData, i, fixedParams) {
+        skip = false;
+        for (var param in fixedParams) {
+            if (messageData[i][param] != fixedParams[param]) {
+                skip = true;
+                break;
+            }
+        }
+        return skip
+    }
+
+    self._update2D = function (messageData, nbDims, iEpisode) {
+        var fixedParams = {}
+        if (nbDims > 1) {
+            fixedParams = {}
+        }
+        var data = []
+        data = self._graph2d.data.datasets[0].data;
+        self._graph2d.data.datasets[0].label = "Learned Value Function (episode " + iEpisode + ")";
+        var fixedParams = self._getFixedParams();
+        var dotsCount = 0
+        for (var i = 0; i < messageData.length; i++) {
+            if (nbDims > 1 && self._shouldSkip(messageData, i, fixedParams))
+                continue;
+            if (dotsCount < data.length) {
+                data[dotsCount].x = messageData[i].x;
+                data[dotsCount].y = messageData[i].z;
+            }
+            else {
+                data.push({
+                    x: messageData[i].x,
+                    // if y is provided it bears the second parameter value -
+                    // use z instead for the actual return of the value function
+                    y: messageData[i].z
+                });
+            }
+            dotsCount++;
+            self._graph2d.update();
+        };
+        if (data.length > dotsCount)
+            data = data.slice(0, messageData.length);
+
+        self._graph2d.update();
+    }
+
+    self._lastUpdate = null;
+    self._maxRefreshRate = self._params.precision * self._params.precision;
+    self._update = function (messageData, nbDims, iEpisode, force) {
+        // todo: add sliders for param<I>, enable 2D drawing when shape is 2D
+        if (!force && self._lastUpdate && new Date() - self._lastUpdate < self._maxRefreshRate) {
+            return;  // less than 1 update per seconds to keep reasonable performances
+        }
+        self._lastUpdate = new Date();
+        if (self._params.shape == '3D' && nbDims >= 2)
+            self._update3D(messageData, nbDims, iEpisode);
+        else if (self._params.shape == '2D')
+            self._update2D(messageData, nbDims, iEpisode);
+        else
+            console.error("Invalid Number of dimension for " + self._params.shape + " graph: ", nbDims);
+    }
     /*
     Dispatch a message to this widget.
     It is expected that the message holds the following fields:
-    * data: list of dicts,
-    * `x`: position on the x axis, this is the dimension 0 of the
-      state space
-    * [`y`: position on the y axis, only if `shape` is `3D`. This is
-       the dimension 1 of the state space, and will shift all dimension
-       numbers indicated below by 1 if present]
-    * `z`: corresponding value of the action value function for all other
-      parameters.
-    * `param<I>`: starting at 1, value of the ith dimension of the sample
-      of the state space (or (i+1)th dimension if plotting in 3D).
+    * nbDims: number of dimensions of the value function. This is the number of
+      dimensions of the state spaces.
+    * data: list of dicts, each holding the following fields:
+        * `x`: position on the x axis, this is the dimension 0 of the
+          state space
+        * [`y`: position on the y axis, only if `shape` is `3D`. This is
+           the dimension 1 of the state space, and will shift all dimension
+           numbers indicated below by 1 if present]
+        * `z`: corresponding value of the action value function for all other
+          parameters.
+        * `param<I>`: starting at 1, value of the ith dimension of the sample
+          of the state space (or (i+1)th dimension if plotting in 3D).
     */
-    self.dispatch = function (message) {
-        self._update(message.data);
+    self.dispatch = function (message, force) {
+        self._lastMessage = message;
+        self._setupSliders(message);
+        self._update(message.data, message.nbDims, message.iEpisode, force);
     }
 }

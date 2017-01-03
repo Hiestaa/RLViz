@@ -72,10 +72,27 @@ function, we need a way to reduce all action-values to a single values."
 
         self._notifyIfNotTooFrequent = utils.makeProgress(
             0, self.frequency, self._notify)
+        self._stepSizes = []
 
     def setup(self, problem, algo, agent):
         super(ValueFunctionInspector, self).setup(problem, algo, agent)
         self._notify(0, 0, 0, 0)
+
+    def getKeys(self, nbDims):
+        if nbDims == 1:
+            return ['x']
+        if nbDims == 2 and self.shape == '3D':
+            return ['x', 'y']
+        if nbDims == 2 and self.shape == '2D':
+            return ['x', 'param1']
+        if nbDims > 2 and self.shape == '3D':
+            return ['x', 'y'] + [
+                'param%d' % x for x in xrange(1, nbDims - 1)
+            ]
+        if nbDims > 2 and self.shape == '2D':
+            return ['x'] + [
+                'param%d' % x for x in xrange(1, nbDims)
+            ]
 
     def _computeValueFunction(self, nbDims, low, high):
         """
@@ -94,23 +111,8 @@ function, we need a way to reduce all action-values to a single values."
         * `param<I>`: starting at 1, value of the ith dimension of the sample
           of the state space (or (i+1)th dimension if plotting in 3D).
         """
-        def getKeys():
-            if nbDims == 1:
-                return ['x']
-            if nbDims == 2 and self.shape == '3D':
-                return ['x', 'y']
-            if nbDims == 2 and self.shape == '2D':
-                return ['x', 'param1']
-            if nbDims > 2 and self.shape == '3D':
-                return ['x', 'y'] + [
-                    'param%d' % x for x in xrange(1, nbDims - 1)
-                ]
-            if nbDims > 2 and self.shape == '2D':
-                return ['x'] + [
-                    'param%d' % x for x in xrange(1, nbDims)
-                ]
 
-        values, steps = zip(*[
+        values, self._stepSizes = zip(*[
             np.linspace(
                 low[dim],
                 high[dim],
@@ -124,7 +126,7 @@ function, we need a way to reduce all action-values to a single values."
         # returns a list
         return [
             utils.extends({
-                key: state[k] for k, key in enumerate(getKeys())
+                key: state[k] for k, key in enumerate(self.getKeys(nbDims))
             }, z=reducer([
                 self._algo.actionValue(state, action)
                 for action in allActions]))
@@ -133,27 +135,54 @@ function, we need a way to reduce all action-values to a single values."
 
     def _notify(self, pcVal, iEpisode, nEpisodes, episodeReturn):
         """
-        Called
-        * pcVal: percentage of the progression, a float betwen 0 and 100
-        * iEpisode: number of the episode currently running (or just terminated)
-        * nEpisodes: total number of episodes expected to be run overall
-        * episodeReturn: return received for the episode `iEpisode`.
+        Notification messages will hold the following fields:
+        * route:
+        * uid:
+        * iEpisode:
+        * data:
+        * nbDims:
+        * low:
+        * high:
+        * stepSizes:
         """
         # compute the value function to the given precision.
         if self._problem is None or self._problem._env is None:
             print "WARNING: Inspector isn't setup."
             data = {}
+            nbDims = 0
+            low = {}
+            high = {}
+            stepSizes = {}
         else:
+            nbDims = len(self._problem._env.observation_space.low)
+
             data = self._computeValueFunction(
-                len(self._problem._env.observation_space.low),
+                nbDims,
                 self._problem._env.observation_space.high,
                 self._problem._env.observation_space.low)
+            low = {
+                key: self._problem._env.observation_space.low[k]
+                for k, key in enumerate(self.getKeys(nbDims))
+            }
+            high = {
+                key: self._problem._env.observation_space.high[k]
+                for k, key in enumerate(self.getKeys(nbDims))
+            }
+            stepSizes = {
+                key: self._stepSizes[k]
+                for k, key in enumerate(self.getKeys(nbDims))
+            }
         # need to send the uid, as well as some kind of command / reply-to /
         # routing key to the message
         self.send({
             'route': 'inspect',
             'uid': self.uid,
-            'data': data
+            'iEpisode': iEpisode,
+            'data': data,
+            'nbDims': nbDims,
+            'low': low,
+            'high': high,
+            'stepSizes': stepSizes
         })
 
     def __call__(self, iEpisode, nEpisodes, episodeReturn):
