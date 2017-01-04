@@ -384,39 +384,42 @@ function ValueFunctionWidget($container, params) {
         return fixed
     }
 
+    // tells the update functions whether a point should be skipped.
+    // We'll only plot points that have all their 'param' attributes equal to
+    // the given `fixedParams`
+    self._shouldSkipPoint = function (messageData, i, fixedParams) {
+        for (var param in fixedParams) {
+            if (messageData[i][param] != fixedParams[param]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     self._update3D = function (messageData, nbDims, iEpisode) {
         var update = []
         // TODO: when there is more parameters than what can be displayed
         // we should show sliders to set the value of non-plotted dimensions
         var fixedParams = {}
         if (nbDims > 2) {
-            fixedParams = {}
+            fixedParams = self._getFixedParams();
         }
+        var dotsCount = 0
         for (var i = 0; i < messageData.length; i++) {
+            if (nbDims > 2 && self._shouldSkipPoint(messageData, i, fixedParams))
+                continue;
             update.push({
-                id: i,
+                id: dotsCount,
                 x: messageData[i].x,
                 y: messageData[i].y,
                 z: messageData[i].z,
                 style: messageData[i].z
             });
+            dotsCount++;
         }
         self._data.update(update);
     }
 
-    // tells the `update2D` function whether a point should be skipped.
-    // We'll only plot points that have all their 'param' attributes equal to
-    // the given `fixedParams`
-    self._shouldSkip = function (messageData, i, fixedParams) {
-        skip = false;
-        for (var param in fixedParams) {
-            if (messageData[i][param] != fixedParams[param]) {
-                skip = true;
-                break;
-            }
-        }
-        return skip
-    }
 
     self._update2D = function (messageData, nbDims, iEpisode) {
         var fixedParams = {}
@@ -429,7 +432,7 @@ function ValueFunctionWidget($container, params) {
         var fixedParams = self._getFixedParams();
         var dotsCount = 0
         for (var i = 0; i < messageData.length; i++) {
-            if (nbDims > 1 && self._shouldSkip(messageData, i, fixedParams))
+            if (nbDims > 1 && self._shouldSkipPoint(messageData, i, fixedParams))
                 continue;
             if (dotsCount < data.length) {
                 data[dotsCount].x = messageData[i].x;
@@ -453,7 +456,11 @@ function ValueFunctionWidget($container, params) {
     }
 
     self._lastUpdate = null;
-    self._maxRefreshRate = self._params.precision * self._params.precision;
+    self._maxRefreshRate = Math.max(
+        self._params.precision * self._params.precision / 5,
+        // precision 100 will update every 100 * 100 / 5 = 2000ms = 2s
+        // precision 10 will update every 10 * 10 / 5 = 20ms => 100ms
+        100);
     self._update = function (messageData, nbDims, iEpisode, force) {
         // todo: add sliders for param<I>, enable 2D drawing when shape is 2D
         if (!force && self._lastUpdate && new Date() - self._lastUpdate < self._maxRefreshRate) {
@@ -536,7 +543,7 @@ function EfficiencyWidget($container, params) {
         self._$widget.html(
             '<div class="panel panel-default">' +
             '   <div class="panel-heading">' +
-            '       <h3 class="panel-title">Training Efficiency (' + self._params.metric + ')</h3>' +
+            '       <h3 class="panel-title">Training Efficiency (' + self._params.metric + ' per episode)</h3>' +
             '   </div>' +
             '   <div class="panel-body">' +
             '       <canvas id="plot"/>' +
@@ -600,8 +607,7 @@ function EfficiencyWidget($container, params) {
     */
     self.dispatch = function (message) {
         if (!self._graph2d.data.datasets[self._nbRuns - 1]) {
-            // quick dirty setup in case we add the inspector while the process is ongoing
-            self._setup();
+            self._addDataset();  // add a dataset if we don't have one yet
         }
         self._graph2d.data.datasets[self._nbRuns - 1].data.push({
             x: message.iEpisode,

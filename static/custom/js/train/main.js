@@ -6,8 +6,6 @@ function TrainComponent($container) {
     self._selectizeProblem = null;
     self._selectizeAlgo = null;
 
-    self._agent = new Agent(self._$container.find('#inspectors-panel'));
-
     self._createAlgosOptions = function () {
         return self._$container.find('#select-algorithm option').map(function () {
             return {
@@ -79,17 +77,57 @@ function TrainComponent($container) {
             .css('position',  'absolute')
             .css('left', '-10000px;');
 
+        self._agent = new Agent(self._$container.find('#inspectors-panel'), {
+            error: self.onError,
+            success: self.onSuccess
+        });
+
         self._$container.find('#submit').click(self.onTrain);
+        self._$container.find('#interrupt').click(self.onInterrupt);
     };
 
-    // called when clicking on the 'train' button;
+    // called when clicking on the 'train' button that should start the
+    // training of the agent and reveal the 'interrupt' button
+    self._lastTrain = new Date();
     self.onTrain = function () {
+        if (new Date() - self._lastTrain < 500)
+            return;  // ignore any double query in less than 500ms
         self._agent.train(
             self._selectizeProblem.getValue(),
             self._hyperParametersOverride.getProblemParams(),
             self._selectizeAlgo.getValue(),
             self._hyperParametersOverride.getAlgoParams(),
             self._hyperParametersOverride.getAgentParams());
+        self._$container.find('#submit').toggleClass('hidden')
+        self._$container.find('#interrupt').toggleClass('hidden')
+    }
+
+    // called when clicking on the 'interrupt' button that should interrupt any
+    // ongoing progress and reveal the 'train' button back.
+    self.onInterrupt = function () {
+        if (new Date() - self._lastTrain < 500)
+            return;  // ignore any double query in less than 500ms
+        self._agent.interrupt();
+        self._$container.find('#submit').toggleClass('hidden')
+        self._$container.find('#interrupt').toggleClass('hidden')
+    }
+
+    // called when an error occurs during the agent training
+    self.onError = function (message) {
+        if (self._$container.find('#submit').hasClass('hidden')) {
+            self._$container.find('#submit').toggleClass('hidden')
+            self._$container.find('#interrupt').toggleClass('hidden')
+        }
+        alerts.danger(message.message);
+    }
+
+    // called when the agent training succeeds
+    self.onSuccess = function (message) {
+        if (self._$container.find('#submit').hasClass('hidden')) {
+            self._$container.find('#submit').toggleClass('hidden')
+            self._$container.find('#interrupt').toggleClass('hidden')
+        }
+        alerts.success(message.message);
     }
 
     self.initialize()

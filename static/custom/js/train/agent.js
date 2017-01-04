@@ -5,8 +5,11 @@ It handles the communication protocols and dispatch messages sent by the server
 to the corresponding inspector.
 */
 
-function Agent($inspectorsPanel) {
+function Agent($inspectorsPanel, callbacks) {
     var self = this;
+
+    self._errorCb = (callbacks || {}).error
+    self._successCb = (callbacks || {}).success
 
     // stores all user-defined data for problem, algo and agent
     // required to re-create the whole env upon disconnect
@@ -36,14 +39,18 @@ function Agent($inspectorsPanel) {
         }
         self._connection = connection;
         console.log("Connection opened");
-
+        var progressInspectorAdded = false;
         // register all inspectors again
         for (var key in self._inspectorParams) {
             var name = key.split(':')[0];
             var uid = key.split(':')[1];
             var params = self._inspectorParams[key];
             self.registerInspector(name, uid, params);
+            if (name == 'ProgressInspector')
+                progressInspectorAdded = true;
         }
+        if (!progressInspectorAdded)
+            self._inspectorsManager.addInspector('ProgressInspector', {frequency: 1000});
     }
 
     self._onClose = function () {
@@ -52,12 +59,14 @@ function Agent($inspectorsPanel) {
 
     self._onMessage = function (message) {
         routes = {
-            'inspect': self._inspectorsManager.dispatch
+            'inspect': self._inspectorsManager.dispatch,
+            'error': self._errorCb,
+            'success': self._successCb
         }
         if (message.route && routes[message.route])
             return routes[message.route](message);
 
-        console.error("Route " + route + " not found.", message);
+        console.error("Route " + message.route + " not found.", message);
     }
 
     self._waitForConnect = function (fn) {
@@ -97,6 +106,13 @@ function Agent($inspectorsPanel) {
         self._connection.send(command);
     });
 
+    self.interrupt = self._waitForConnect(function() {
+        var command = {
+            'command': 'interrupt'
+        }
+        self._connection.send(command);
+    })
+
     self.registerInspector = self._waitForConnect(function (name, uid, params) {
         var key = name + ':' + uid
         self._inspectorParams[key] = params;
@@ -107,7 +123,6 @@ function Agent($inspectorsPanel) {
             'uid': uid,
             'params': params
         }
-        console.log("Command: ", command);
         self._connection.send(command);
     });
 

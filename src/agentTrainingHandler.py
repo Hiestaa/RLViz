@@ -3,11 +3,13 @@
 from __future__ import unicode_literals
 
 import json
+import time
 
 from tornado.websocket import WebSocketHandler
 from tornado.web import HTTPError
 from tornado.ioloop import PeriodicCallback
 
+import utils
 from algorithms import Algorithms
 from problems import Problems
 from agent import Agent
@@ -31,6 +33,7 @@ class AgentTrainingHandler(WebSocketHandler):
         self._currentTrain = None
         self._currentTest = None
         self._execPeriodicCallback = None
+        self._trainStartT = None
 
         self._inspectorsFactory = InspectorsFactory(self.write_message)
 
@@ -45,6 +48,11 @@ class AgentTrainingHandler(WebSocketHandler):
             self._execPeriodicCallback.stop()
         self._execPeriodicCallback = None
         self._currentTrain = None
+        self.write_message({
+            'route': 'success',
+            'message': "Agent successfully trained in %s" % utils.timeFormat(
+                time.time() - self._trainStartT)
+        })
 
     def nextTestStep(self):
         if self._currentTest is None or self._execPeriodicCallback is None:
@@ -94,6 +102,7 @@ class AgentTrainingHandler(WebSocketHandler):
           (param name - param value mapping)
         * agent.params: agent's execution parameters
         """
+        self._trainStartT = time.time()
         algo = Algorithms[message['algorithm']['name']](
             **message['algorithm']['params'])
         problem = Problems[message['problem']['name']](
@@ -122,6 +131,17 @@ class AgentTrainingHandler(WebSocketHandler):
             self._nextTrainStep, self._agent.delay)
         self._execPeriodicCallback.start()
 
+    def _interruptCommand(self, message):
+        """
+        Called when receiving the command 'interrupt'.
+        No specific parameter is expected. This interrupts the current agent
+        training process.
+        If no agent training is currently in progress, this will do nothing.
+        """
+        if self._agent is not None:
+            self._agent.release()
+            self._trainingDone()
+
     def _registerInspectorCommand(self, message):
         """
         Called when receiving the command 'registerInspector'
@@ -148,15 +168,23 @@ class AgentTrainingHandler(WebSocketHandler):
 
         commands = {
             'train': self._trainCommand,
-            'registerInspector': self._registerInspectorCommand
+            'registerInspector': self._registerInspectorCommand,
+            'interrupt': self._interruptCommand
         }
 
         if message.get('command') in commands:
             print "[AgentTraining] Executing command: %s" % (
                 message.get('command'))
-            return commands[message.get('command')](message)
+            try:
+                return commands[message.get('command')](message)
+            except Exception as e:
+                return self.write_message({
+                    'route': 'error',
+                    'message': str(e)
+                })
 
-        raise HTTPError("Unknown command: %s" % str(commands.get('command')))
+        raise HTTPError(404, "Unknown command: %s"
+                        % message.get('command', 'undefined'))
 
     def on_close(self):
         print("WebSocket closed")

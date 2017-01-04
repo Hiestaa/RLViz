@@ -209,3 +209,5 @@ adding inspectors during training"
         if self._problem is not None:
             self._problem.terminate()
             self._problem.release()
+            if self.renderFreq != -1:
+                self._problem.render(close=True)
