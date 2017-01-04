@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import json
 import time
+import logging
 
 from tornado.websocket import WebSocketHandler
 from tornado.web import HTTPError
@@ -51,7 +52,7 @@ class AgentTrainingHandler(WebSocketHandler):
         self.write_message({
             'route': 'success',
             'message': "Agent successfully trained in %s" % utils.timeFormat(
-                time.time() - self._trainStartT)
+                time.time() - (self._trainStartT or time.time()))
         })
 
     def nextTestStep(self):
@@ -71,6 +72,13 @@ class AgentTrainingHandler(WebSocketHandler):
         self._currentTrain = None
 
         # run one more episode after training with rendering enabled
+        if not self._agent.isSetup:
+            return self.write_message({
+                'route': 'success',
+                'message': ("Successfull interruption, but no agent training "
+                            "was in progress.")
+            })
+
         print "Episode %d - Final test." % (self._agent.nEpisodes)
         self._currentTest = self._agent.test()
         if self._agent.delay == 0:
@@ -178,6 +186,7 @@ class AgentTrainingHandler(WebSocketHandler):
             try:
                 return commands[message.get('command')](message)
             except Exception as e:
+                logging.exception(e)
                 return self.write_message({
                     'route': 'error',
                     'message': str(e)

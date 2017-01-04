@@ -30,17 +30,24 @@ class Base(Parametizable):
         """
         super(Base, self).__init__(**kwargs)
 
-        self.send = send
+        self._send = send
         self.uid = uid
 
         self._problem = None
         self._algo = None
         self._agent = None
 
+    def send(self, message):
+        print("[%s:%s] Inspector Notifies" % (
+            self.__class__.__name__, str(self.uid)))
+        self._send(message)
+
     def setup(self, problem, algo, agent):
         self._problem = problem
         self._algo = algo
         self._agent = agent
+        print("[%s:%s] Inspector setup." % (
+            self.__class__.__name__, str(self.uid)))
 
     def __call__(self, *args, **kwargs):
         """

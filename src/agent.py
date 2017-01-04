@@ -61,6 +61,8 @@ adding inspectors during training"
         self._algo = None
         self._inspectorsFactory = inspectorsFactory or []
 
+        self.isSetup = False
+
     def _checkCompatibility(self, problem, algo):
         """
         Make sure the algo can solve the given problem.
@@ -93,6 +95,8 @@ adding inspectors during training"
         # the needs of algorithms
 
         self._algo.setup(**kwargs)
+
+        self.isSetup = True
 
     def test(self):
         """

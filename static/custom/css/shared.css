@@ -65,3 +65,6 @@ body {
 .bs-callout-success h4 {
   color: #1BC714;
 }
+body {
+    margin-bottom: 100px;
+}

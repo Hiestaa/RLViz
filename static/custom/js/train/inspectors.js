@@ -212,8 +212,13 @@ function ValueFunctionWidget($container, params) {
     self._$widget = $('<div class="col-xs-12 col-lg-6"></div>');
     self._$container.prepend(self._$widget)
 
+    self._data3d = null;
+    self._options3d = null;
+    self._graph3d = null;
+    self._graph2d = null;
+
     // Create and populate a data table.
-    self._setup3D = function () {
+    self._setup3D = function (xLabel, yLabel) {
         self._$widget.html(
             '<div class="panel panel-default">' +
             '   <div class="panel-heading">' +
@@ -224,7 +229,7 @@ function ValueFunctionWidget($container, params) {
             '       <div id="sliders"></div>' +
             '   </div>' +
             '</div>');
-        self._data = new vis.DataSet();
+        self._data3d = new vis.DataSet();
         var counter = 0;
         var steps = self._params.precision;  // number of datapoints will be steps*steps
         var xStepVal = 2 / steps
@@ -233,10 +238,10 @@ function ValueFunctionWidget($container, params) {
         var yAxisMax = steps * yStepVal;
         for (var x = 0; x < xAxisMax; x+=xStepVal) {
             for (var y = 0; y < yAxisMax; y+=yStepVal) {
-                self._data.add({id:counter++,x:x,y:y,z:0,style:0});
+                self._data3d.add({id:counter++,x:x,y:y,z:0,style:0});
             }
         }
-        var options = {
+        self._options3d = {
             width:  (self._$widget.width() - 20) + 'px',
             height: ((self._$widget.width() - 20) * 0.7) + 'px',
             style: 'surface',
@@ -245,16 +250,18 @@ function ValueFunctionWidget($container, params) {
             showShadow: false,
             keepAspectRatio: false,
             verticalRatio: 0.5,
-            yCenter: '40%'
+            yCenter: '40%',
+            xLabel: xLabel || "Unknown Yet",
+            yLabel: yLabel || "Unknown Yet",
+            zLabel: "Estimated Return"
         };
         var graphContainer = self._$widget.find('#plot')[0];
-        self._graph3d = new vis.Graph3d(graphContainer, self._data, options);
+        self._graph3d = new vis.Graph3d(graphContainer, self._data3d, self._options3d);
         self._graph2d = null;
     }
 
     self._setup2D = function () {
         self._$widget.html(
-            '<div class="col-xs-12 col-lg-6">' +
             '<div class="panel panel-default">' +
             '   <div class="panel-heading">' +
             '       <h3 class="panel-title">Value Function (2D)</h3>' +
@@ -263,7 +270,7 @@ function ValueFunctionWidget($container, params) {
             '       <canvas id="plot"/>' +
             '       <div id="sliders"></div>' +
             '   </div>' +
-            '</div></div>');
+            '</div>');
 
         var data = [];
         var counter = 0
@@ -291,7 +298,19 @@ function ValueFunctionWidget($container, params) {
                 scales: {
                     xAxes: [{
                         type: 'linear',
-                        position: 'bottom'
+                        position: 'bottom',
+                        scaleLabel: {
+                            display: true,
+                            labelString: "Unknown Yet"
+                        }
+                    }],
+                    yAxes: [{
+                        type: 'linear',
+                        position: 'left',
+                        scaleLabel:  {
+                            display: true,
+                            labelString: "Estimated Return (from this state onward)"
+                        }
                     }]
                 }
             }
@@ -353,9 +372,10 @@ function ValueFunctionWidget($container, params) {
             var min = message.low[param];
             var max = message.high[param];
             var step = message.stepSizes[param];
+            var name = message.dimensionNames[param];
 
             self._$widget.find('#sliders').append(
-                '<b>' + param + ': </b>' +
+                '<b>' + name + ': </b>' +
                 '<input type="text" class="span12" value="' + current + '" id="' + param + '" ><br/>'
             );
             self._sliders[param] = self._$widget.find('#sliders #' + param).slider({
@@ -379,7 +399,6 @@ function ValueFunctionWidget($container, params) {
             var idx = parseInt(self._sliders[param][0].value);
             fixed[param] = self._slidersValues[param][
                 Math.min(idx, self._slidersValues[param].length)];
-            console.log("Param " + param + " slider value = " + idx + ', actual value = ', fixed[param])
         });
         return fixed
     }
@@ -396,7 +415,10 @@ function ValueFunctionWidget($container, params) {
         return false;
     }
 
-    self._update3D = function (messageData, nbDims, iEpisode) {
+    self._update3D = function (messageData, nbDims, iEpisode, dimensionNames) {
+        if (self._options3d.xLabel != dimensionNames.x || self._options3d.yLabel != dimensionNames.y) {
+            self._setup3D(dimensionNames.x, dimensionNames.y)
+        }
         var update = []
         // TODO: when there is more parameters than what can be displayed
         // we should show sliders to set the value of non-plotted dimensions
@@ -408,28 +430,32 @@ function ValueFunctionWidget($container, params) {
         for (var i = 0; i < messageData.length; i++) {
             if (nbDims > 2 && self._shouldSkipPoint(messageData, i, fixedParams))
                 continue;
-            update.push({
+            var upd = {
                 id: dotsCount,
                 x: messageData[i].x,
                 y: messageData[i].y,
                 z: messageData[i].z,
                 style: messageData[i].z
-            });
+            }
+            upd[dimensionNames.x] = messageData[i].x;
+            upd[dimensionNames.y] = messageData[i].y;
+            upd['Estimated Return'] = messageData[i].z
+            update.push(upd);
             dotsCount++;
         }
-        self._data.update(update);
+        self._data3d.update(update);
     }
 
 
-    self._update2D = function (messageData, nbDims, iEpisode) {
+    self._update2D = function (message, nbDims, iEpisode, dimensionNames) {
         var fixedParams = {}
+        var messageData = message;
         if (nbDims > 1) {
-            fixedParams = {}
+            fixedParams = self._getFixedParams();
         }
         var data = []
         data = self._graph2d.data.datasets[0].data;
         self._graph2d.data.datasets[0].label = "Learned Value Function (episode " + iEpisode + ")";
-        var fixedParams = self._getFixedParams();
         var dotsCount = 0
         for (var i = 0; i < messageData.length; i++) {
             if (nbDims > 1 && self._shouldSkipPoint(messageData, i, fixedParams))
@@ -451,26 +477,28 @@ function ValueFunctionWidget($container, params) {
         };
         if (data.length > dotsCount)
             data = data.slice(0, messageData.length);
-
+        if (messageData.length > 0)
+            self._graph2d.options.scales.xAxes[0].scaleLabel.labelString = dimensionNames.x;
         self._graph2d.update();
     }
 
     self._lastUpdate = null;
+    // WARNING: to lower the bandwidth usage, this is also implemented server-side
     self._maxRefreshRate = Math.max(
         self._params.precision * self._params.precision / 5,
         // precision 100 will update every 100 * 100 / 5 = 2000ms = 2s
         // precision 10 will update every 10 * 10 / 5 = 20ms => 100ms
         100);
-    self._update = function (messageData, nbDims, iEpisode, force) {
+    self._update = function (messageData, nbDims, iEpisode, dimensionNames, force) {
         // todo: add sliders for param<I>, enable 2D drawing when shape is 2D
         if (!force && self._lastUpdate && new Date() - self._lastUpdate < self._maxRefreshRate) {
             return;  // less than 1 update per seconds to keep reasonable performances
         }
         self._lastUpdate = new Date();
         if (self._params.shape == '3D' && nbDims >= 2)
-            self._update3D(messageData, nbDims, iEpisode);
+            self._update3D(messageData, nbDims, iEpisode, dimensionNames);
         else if (self._params.shape == '2D')
-            self._update2D(messageData, nbDims, iEpisode);
+            self._update2D(messageData, nbDims, iEpisode, dimensionNames);
         else
             console.error("Invalid Number of dimension for " + self._params.shape + " graph: ", nbDims);
     }
@@ -493,7 +521,7 @@ function ValueFunctionWidget($container, params) {
     self.dispatch = function (message, force) {
         self._lastMessage = message;
         self._setupSliders(message);
-        self._update(message.data, message.nbDims, message.iEpisode, force);
+        self._update(message.data, message.nbDims, message.iEpisode, message.dimensionNames, force);
     }
 
     self.newSession = function (command) {
@@ -562,7 +590,19 @@ function EfficiencyWidget($container, params) {
                 scales: {
                     xAxes: [{
                         type: 'linear',
-                        position: 'bottom'
+                        position: 'bottom',
+                        scaleLabel: {
+                            display: true,
+                            labelString: "Episodes"
+                        }
+                    }],
+                    yAxes: [{
+                        type: 'linear',
+                        position: 'left',
+                        scaleLabel: {
+                            display: true,
+                            labelString: '# of ' + self._params.metric
+                        }
                     }]
                 }
             }

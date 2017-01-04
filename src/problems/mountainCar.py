@@ -18,6 +18,10 @@ class MountainCar(BaseProblem):
         'state': Spaces.Continuous
     }
 
+    ACTION_NAMES = ['left', 'right']
+
+    STATE_DIMENSION_NAMES = ['position', 'velocity']
+
     def release(self):
         if self._env.viewer is not None:
             self._env.viewer.close()

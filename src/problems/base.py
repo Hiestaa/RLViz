@@ -53,6 +53,17 @@ class BaseProblem(Parametizable):
         'state': Spaces.Discrete
     }
 
+    # optional: override to give a specific name to each action
+    # action space is assumed to be discrete and 1 dimensional.
+    # first action should be in first position, second action in second,
+    # and so on.
+    ACTION_NAMES = []
+
+    # optional: override to give a specific name to each dimension of
+    # the state space. List should be in the same order of the dimensions
+    # of the state space (dimension 1 in first position, etc...)
+    STATE_DIMENSION_NAMES = []
+
     def __init__(self, **kwargs):
         super(BaseProblem, self).__init__(**kwargs)
         self._done = False

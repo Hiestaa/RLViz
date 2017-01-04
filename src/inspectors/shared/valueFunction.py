@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import itertools
+import time
 
 import numpy as np
 
@@ -70,6 +71,7 @@ function, we need a way to reduce all action-values to a single values."
     def __init__(self, *args, **kwargs):
         super(ValueFunctionInspector, self).__init__(*args, **kwargs)
 
+        self._lastNotify = time.time()
         self._notifyIfNotTooFrequent = utils.makeProgress(
             0, self.frequency, self._notify)
         self._stepSizes = []
@@ -144,6 +146,7 @@ function, we need a way to reduce all action-values to a single values."
         * low:
         * high:
         * stepSizes:
+        * dimensionNames:
         """
         # compute the value function to the given precision.
         if self._problem is None or self._problem._env is None:
@@ -154,6 +157,11 @@ function, we need a way to reduce all action-values to a single values."
             high = {}
             stepSizes = {}
         else:
+            if time.time() - self._lastNotify < max(
+                    float(self.precision ** 2 / 5) / 1000.0, 0.1):
+                # avoid cluterring the socket
+                return
+
             nbDims = len(self._problem._env.observation_space.low)
 
             data = self._computeValueFunction(
@@ -172,6 +180,12 @@ function, we need a way to reduce all action-values to a single values."
                 key: self._stepSizes[k]
                 for k, key in enumerate(self.getKeys(nbDims))
             }
+            dimensionNames = {
+                key: (
+                    self._problem.STATE_DIMENSION_NAMES[k]
+                    if k < len(self._problem.STATE_DIMENSION_NAMES) else key)
+                for k, key in enumerate(self.getKeys(nbDims))
+            }
         # need to send the uid, as well as some kind of command / reply-to /
         # routing key to the message
         self.send({
@@ -182,7 +196,8 @@ function, we need a way to reduce all action-values to a single values."
             'nbDims': nbDims,
             'low': low,
             'high': high,
-            'stepSizes': stepSizes
+            'stepSizes': stepSizes,
+            'dimensionNames': dimensionNames
         })
 
     def __call__(self, iEpisode, nEpisodes, *args, **kwargs):
