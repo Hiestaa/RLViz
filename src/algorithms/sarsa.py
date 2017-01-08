@@ -2,13 +2,11 @@
 
 from __future__ import unicode_literals
 
-import itertools
-import math
-
-import numpy as np
+import logging
 
 import utils
-from algorithms.base import BaseAlgo, Spaces, ParamsTypes, AlgoException
+from consts import Spaces, ParamsTypes
+from algorithms.base import BaseAlgo, AlgoException, Discretizer
 from algorithms.policies import Policies
 from algorithms.hints import (
     ALPHA_PARAMETER_HELP, EPSILON_PARAMETER_HELP, GAMMA_PARAMETER_HELP)
@@ -72,14 +70,9 @@ class Sarsa(BaseAlgo):
         self._a = self.alpha
         self._g = self.gamma
 
-    def setup(self, allStates, allActions, **kwargs):
+    def _setup(self, allStates, allActions):
         """
-        Sarsa performs in discrete action space and requires the
-        action state value function table to be initialized arbitrarily
-        for each state and action.
-        * allStates should be given as a list of all possible states,
-          each state being a tuple floats, all of the same length
-        * allActions should be the list of possible actions
+        Actual setup - enable children to reuse
         """
         # action-value function.
         # For each possible state, this gives an indication to the agent of
@@ -91,6 +84,15 @@ class Sarsa(BaseAlgo):
             for state in allStates
         }
         self._isSetup = True
+
+    def setup(self, problem):
+        """
+        Sarsa performs in discrete action space and requires the
+        action state value function table to be initialized arbitrarily
+        for each state and action. It therefore assumes the sate space and
+        the action space is continuous
+        """
+        self._setup(problem.getStatesList(), problem.getActionList())
 
     def _assertSetup(self):
         if not self._isSetup:
@@ -176,85 +178,40 @@ problem's observation space hold a high number dimensions.""",
 
         self._allActions = []
 
-    def setup(self, observationSpace, actionSpace, **kwargs):
-        """
-        `observationSpace` and `actionSpace` here are respectively
-        gym's `Box` and `Discrete` instances.
-        """
-        # will be updated with rounded values, but we need those values to
-        # round :p
-        self._oslow, self._oshigh = observationSpace.low, observationSpace.high
-        values, self._steps = zip(*[
-            np.linspace(
-                observationSpace.low[dim],
-                observationSpace.high[dim],
-                self.precision,
-                retstep=True)
-            for dim in xrange(len(observationSpace.low))
-        ])
-        self._oslow = [round(v, self._getNDigits(dim))
-                       for dim, v in enumerate(observationSpace.low)]
-        self._oshigh = [round(v, self._getNDigits(dim))
-                        for dim, v in enumerate(observationSpace.high)]
-        self._steps = [round(v, self._getNDigits(dim))
-                       for dim, v in enumerate(self._steps)]
-        rvalues = [
-            [round(self._oslow[dim] + n * self._steps[dim],
-                   self._getNDigits(dim))
-             for n, v in enumerate(linspace)]
-            for dim, linspace in enumerate(values)]
-        allStates = list(itertools.product(*rvalues))
-        self._allActions = range(actionSpace.n)
+        self._discretizer = None
 
-        super(RoundingSarsa, self).setup(allStates, self._allActions)
+    def setup(self, problem):
+        # expect a continuous state space
+        self._discretizer = Discretizer(
+            problem.observationSpace,
+            self.precision)
 
-    def _getNDigits(self, dim):
-        return int(
-            # log10(0.1) = -1, log10(0.01) = -2, etc...
-            round(math.log10(
-                abs(self._oslow[dim] - self._oshigh[dim]))) * -1 +
-            3)
+        allStates = list(self._discretizer.discretize())
 
-    def _threshold(self, val, step, dim):
-        # round to something sane to avoid floating operation troubles
-        val = round(val, self._getNDigits(dim))
-        # translation to origin 0
-        val = val - self._oslow[dim]
-        # how much steps do we have in vals?
-        nb = round(val / step)
+        # expect a discrete action state
+        self._allActions = range(problem.actionSpace.n)
 
-        val = nb * step
-        # revert translation
-        return round(val + self._oslow[dim], self._getNDigits(dim))
-
-    def _round(self, observations):
-        return tuple([
-            self._threshold(observations[x], self._steps[x], x)
-            for x in xrange(len(observations))])
+        self._setup(allStates, self._allActions)
 
     def pickAction(self, state, episodeI=None, optimize=False):
         self._assertSetup()
-        rstate = self._round(state)
+        rstate = self._discretizer.round(state)
         try:
             return super(RoundingSarsa, self).pickAction(
                 rstate, episodeI=episodeI, optimize=optimize)
-        except KeyError:
-            if all(o < self._oshigh[dim] and o > self._oslow[dim]
-                   for dim, o in enumerate(state)):
-                print "Rounding error: ", state, 'to', rstate
+        except KeyError as e:
+            logging.exception(e)
             # we're likely out of bounds (it seems to happen)
             # just create a virtual state and pick a random policy
             return self._policy.pickRandom({a: 0 for a in self._allActions})
 
     def actionValue(self, state, action):
         self._assertSetup()
-        rstate = self._round(state)
+        rstate = self._discretizer.round(state)
         try:
             return super(RoundingSarsa, self).actionValue(rstate, action)
-        except KeyError:
-            if all(o < self._oshigh[dim] and o > self._oslow[dim]
-                   for dim, o in enumerate(state)):
-                print "Rounding error: ", state, 'to', rstate
+        except KeyError as e:
+            logging.exception(e)
             return 0
 
     def train(self, oldState, newState, action, reward, episodeI, stepI):
@@ -262,13 +219,15 @@ problem's observation space hold a high number dimensions.""",
         self._assertSetup()
         try:
             return super(RoundingSarsa, self).train(
-                self._round(oldState),
-                self._round(newState),
+                self._discretizer.round(oldState),
+                self._discretizer.round(newState),
                 action, reward, episodeI, stepI)
         except KeyError:
             if all(o < self._oshigh[dim] and o > self._oslow[dim]
                    for dim, o in enumerate(newState)):
-                print "Rounding error: ", newState, 'to', self._round(newState)
+                print(
+                    "Rounding error: ", newState, 'to',
+                    self._discretizer.round(newState))
             # we're likely out of bounds (it seems to happen)
             # just create a virtual state and pick a random policy
             return self._policy.pickRandom({a: 0 for a in self._allActions})

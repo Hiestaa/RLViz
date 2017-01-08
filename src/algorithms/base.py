@@ -3,10 +3,123 @@
 from __future__ import unicode_literals
 
 
+import itertools
+import math
+
+import numpy as np
 from algorithms.policies import Policies
 from algorithms.hints import EPSILON_PARAMETER_HELP
 from parametizable import Parametizable
 from consts import Spaces, ParamsTypes
+
+
+class Discretizer(object):
+    """
+    Helper to discretize a bounded coutinuous vector space.
+
+    BEWARE: the precision factor controls the resource usage of this object.
+    IT DOES NOT STORE THE ENTIRE DISCRETIZED SPACE
+    but it does build it on calling `discretize` (which) returns a generator,
+    it's up to you to store the whole beast in memory or not.
+
+    The helper provides to handy methods:
+    * `discretize()` will return a list of all possible values the space can
+      hold. The values will be linearly distributed over each dimension of the
+      space.
+    * `trunc(vec:tuple)` truncate the value to the closest smaller value for
+      each dimension of the state space
+    The following attibute are available
+    * low: vector of N dimensions representing the minimum value on each
+      dimension
+    * high: vector of N dimension representing the maxinum value on each
+      dimension
+    * steps: the value of the step in each dimension. The list of values for
+      a given dimension is given by Un = low + steps * n
+
+    To avoid floating point arithmetic nonsense, the numbers are rounded
+    to some number of digits that depends on the precision and the boundaries
+    of the space
+    """
+    def __init__(self, space, precision=10):
+        """
+        Build the discretized on the given N-dimensional space, at the given
+        precision.
+        """
+        super(Discretizer, self).__init__()
+        self._space = space
+        self.precision = precision
+
+        self.low = self._space.low
+        self.high = self._space.high
+
+        values, self.steps = zip(*[
+            np.linspace(
+                self._space.low[dim],
+                self._space.high[dim],
+                self.precision,
+                retstep=True)
+            for dim in xrange(len(self._space.low))
+        ])
+        self.low = [round(v, self._getNDigits(dim))
+                    for dim, v in enumerate(self._space.low)]
+        self.high = [round(v, self._getNDigits(dim))
+                     for dim, v in enumerate(self._space.high)]
+        self.steps = [round(v, self._getNDigits(dim))
+                      for dim, v in enumerate(self.steps)]
+
+    def _getNDigits(self, dim):
+        return max(
+            int(
+                round(
+                    # log10(0.1) = -1, log10(0.01) = -2, etc...
+                    math.log10(
+                        abs(self.low[dim] - self.high[dim]))) * -1 +
+                    # log10(10) = 1, log10(100) = 2, ...
+                    math.log10(self.precision) + 2),
+            0)
+
+    def discretize(self):
+        """
+        Discretize the given continuous space given as a gym `Box` as a list of
+        of possible values between the lower and upper bound of the environment.
+        """
+
+        values = [
+            np.linspace(
+                self._space.low[dim],
+                self._space.high[dim],
+                self.precision)
+            for dim in xrange(len(self._space.low))
+        ]
+        rvalues = [
+            [round(self.low[dim] + n * self.steps[dim],
+                   self._getNDigits(dim))
+             for n, v in enumerate(linspace)]
+            for dim, linspace in enumerate(values)]
+
+        # blows up your memory :p
+        return itertools.product(*rvalues)
+
+    def _threshold(self, val, dim):
+        """
+        find the next previous for (=truncate) the given value, for the
+        given dimension.
+        """
+        # round to something sane to avoid floating operation troubles
+        val = round(val, self._getNDigits(dim))
+        # translation to origin 0
+        val = val - self.low[dim]
+        # how much steps do we have in vals?
+        nb = round(val / self.steps[dim])
+
+        val = nb * self.steps[dim]
+        # revert translation
+        return round(val + self.low[dim], self._getNDigits(dim))
+
+    def round(self, vector):
+        return tuple([
+            self._threshold(vector[x], x)
+            for x in xrange(len(vector))])
 
 
 class AlgoException(Exception):
@@ -86,16 +199,11 @@ class BaseAlgo(Parametizable):
 
         self._policy = self.POLICY(**kwargs)
 
-    def setup(self, **kwargs):
+    def setup(self, problem):
         """
         Some algorithm may require setup - override this function in this case.
         This performs whatever action is necessary to tailor the algorithm to
         a specific problem.
-        Since the prototype of this method is highly dependent on the algorithm
-        (some may require the dimensionality of the action/state space, some
-        may require an comprehensive list of all states and actions, etc...),
-        always expect undefined number of keyword arguments to be passed by
-        adding the splat operator `**kwargs`
         """
         pass
 

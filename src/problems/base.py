@@ -8,6 +8,10 @@ from parametizable import Parametizable
 from consts import ParamsTypes, Spaces
 
 
+class ProblemException(Exception):
+    pass
+
+
 class BaseProblem(Parametizable):
     """
     Mostly a wrapper around gym's environment, but also provide additional
@@ -68,6 +72,8 @@ class BaseProblem(Parametizable):
         super(BaseProblem, self).__init__(**kwargs)
         self._done = False
         self._env = None
+        self.observationSpace = None
+        self.actionSpace = None
 
     @property
     def env(self):
@@ -83,17 +89,48 @@ class BaseProblem(Parametizable):
 
     def setup(self):
         """
-        Setup the environment - this shouldn't be done in the constructore.
+        Setup the environment - this shouldn't be done in the constructor to
+        enable override.
+        This asusmes the problem uses a gym environment. Override otherwise.
         """
         if self.GYM_ENVIRONMENT_NAME is None:
             raise NotImplementedError()
         self._env = gym.make(self.GYM_ENVIRONMENT_NAME)
+        self.observationSpace = self._env.observation_space
+        self.actionSpace = self._env.action_space
+
+    def getStatesList(self):
+        """
+        Returns the list of possible states.
+        Override this function if you're not defining a gym environment.
+        This function should only be called if the problem bears a discrete
+        state space.
+        """
+        if self.env is None:
+            raise NotImplementedError()
+        if self.DOMAIN['state'] == Spaces.Discrete:
+            return range(self.env.action_space.n)
+        raise ProblemException("Continuous state space")
+
+    def getActionsList(self):
+        """
+        Returns the list of possible actions.
+        Override this function if you're not defining a gym environment.
+        This function should only be called if the problem bears a discrete
+        state space.
+        """
+        if self.env is None:
+            raise NotImplementedError()
+        if self.DOMAIN['action'] == Spaces.Discrete:
+            return range(self.env.action_space.n)
+        raise NotImplementedError()
 
     def step(self, action):
         """
         The agent take the given action and receives back the new state,
         the reward, whether the episode is terminated and optionally
         some additional debug information.
+        Override this function if you're not defining a gym environment.
         """
         newObservation, reward, self._done, info = self._env.step(action)
         return newObservation, reward, self._done, info
@@ -101,6 +138,7 @@ class BaseProblem(Parametizable):
     def reset(self):
         """
         Reset the state of the environment for a new episode.
+        Override this function if you're not defining a gym environment.
         """
         self._done = False
         return self._env.reset()
@@ -108,6 +146,7 @@ class BaseProblem(Parametizable):
     def render(self, close=False):
         """
         Render the environment (server-side)
+        Override this function if you're not defining a gym environment.
         """
         return self._env.render(close=close)
 
@@ -116,12 +155,3 @@ class BaseProblem(Parametizable):
         Release handles and memory if manual intervention is required.
         """
         pass
-
-    def getActionsList(self, precision=10):
-        """
-        Returns the list of possible actions.
-        If the action space is continuous, then the `precision` should indicate
-        how many different action samples we should expect which should
-        be taken linearly along the possible actions range.
-        """
-        raise NotImplementedError()

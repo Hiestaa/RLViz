@@ -83,18 +83,9 @@ adding inspectors during training"
         self._checkCompatibility(problem, algo)
         self._problem = problem
         self._algo = algo
-        self._problem.setup()
-        kwargs = {}
-        if self._problem.DOMAIN['state'] == Spaces.Discrete:
-            kwargs['allStates'] = range(self._problem.env.observation_space.n)
-        if self._problem.DOMAIN['action'] == Spaces.Discrete:
-            kwargs['allActions'] = range(self._problem.env.action_space.n)
-        kwargs['observationSpace'] = self._problem.env.observation_space
-        kwargs['actionSpace'] = self._problem.env.action_space
-        # TODO: add more parameters to the setup function depending on
-        # the needs of algorithms
 
-        self._algo.setup(**kwargs)
+        self._problem.setup()
+        self._algo.setup(self._problem)
 
         self.isSetup = True
 
