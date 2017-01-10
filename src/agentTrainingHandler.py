@@ -8,13 +8,149 @@ import logging
 
 from tornado.websocket import WebSocketHandler
 from tornado.web import HTTPError
-from tornado.ioloop import PeriodicCallback
+from tornado.ioloop import PeriodicCallback, IOLoop
 
 import utils
 from algorithms import Algorithms
 from problems import Problems
 from agent import Agent
 from inspectors.factory import InspectorsFactory
+
+
+def placeholder():
+    pass
+
+
+class DelayedExecution(object):
+    """
+    Wraps up the code that enables to execute the agent in a delayed fashion.
+    This will use the agent's `stepDelay` and `episodeDelay` to setup timeouts
+    and callbacks. Beware that an agent setup with 0 delay in both cases will
+    block the server thread during the entirety of its training of testing
+    execution.
+    """
+    def __init__(self, agent, hooks, action='train'):
+        """
+        Initialize the delayed execution on the given agent.
+        `hooks` can contain the following keys associated with callbacks:
+        * `execFinished`: called once the execution is terminated
+        * `step`: called at every step
+        * `episodeFinished`: called after each episode
+        The `action` parameter denotes the kind of run performed. `train` will
+        train the agent, `test` (or any other value) will run a single test
+        episode.
+        """
+        super(DelayedExecution, self).__init__()
+        self._agent = agent
+        self._hooks = hooks
+        self._action = action
+
+        self._hookExecFinished = self._hooks.get('execFinished', placeholder)
+        self._hookStep = self._hooks.get('step', placeholder)
+        self._hookEpisodeFinished = self._hooks.get(
+            'episodeFinished', placeholder)
+
+        self._currentExec = None
+
+        self._execPeriodicCallback = None
+
+        self._interrupted = False
+
+        print(
+            "Delayed callback setup - episodeDelay =", self._agent.episodeDelay,
+            " - stepDelay =", self._agent.stepDelay)
+
+    def interrupt(self):
+        self._interrupted = True
+        self._execFinished()
+
+    def _execFinished(self):
+        self._currentExec = None
+        if self._execPeriodicCallback:
+            self._execPeriodicCallback.stop()
+            self._execPeriodicCallback = None
+        self._hookExecFinished()
+
+    def _onStep(self):
+        if self._interrupted:
+            print "onStep: Interrupted execution"
+            return
+
+        if self._currentExec is None or self._execPeriodicCallback is None:
+            return
+
+        try:
+            accReturn, iEpisode, iStep, done = self._currentExec.next()
+            self._hookStep()
+            if done:
+                self._onEpisodeEnd()
+        except StopIteration:
+            self._execFinished()
+
+    def _onEpisodeEnd(self):
+        self._hookEpisodeFinished()
+        if self._interrupted:
+            print "onEpisodeEnd: Interrupted execution"
+            return
+
+        if self._execPeriodicCallback:
+            self._execPeriodicCallback.stop()
+
+        # it is assumed that at this point, at least the step or episode is
+        # delayed (and if the step is delayed, adding a 0ms delay to the
+        # episode won't be noticeable.)
+        IOLoop.current().call_later(
+            float(self._agent.episodeDelay) / 1000.0,
+            self._startEpisode)
+
+    def _startEpisode(self):
+        if self._interrupted:
+            print "startEpisode: Interrupted execution"
+            return
+
+        if self._currentExec is None:
+            return
+
+        if self._agent.stepDelay == 0 or self._execPeriodicCallback is None:
+            for r, iE, iS, done in self._currentExec:
+                if done:
+                    self._onEpisodeEnd()
+                    break
+        else:
+            # the periodic callback is setup at `run` time
+            self._execPeriodicCallback.start()
+
+    def _runUndelayed(self):
+        """
+        Used when no delay at all is setup to speed up stuff and avoid
+        infinite recursion.
+        """
+        for r, iE, iS, done in self._currentExec:
+            self._hookStep()
+            if done:
+                self._hookEpisodeFinished()
+
+        self._execFinished()
+
+
+    def run(self):
+        print "Running action ", self._action
+        self._interrupted = False
+        if self._action == 'train':
+            self._currentExec = self._agent.train()
+        else:
+            self._currentExec = self._agent.test()
+
+        if self._agent.stepDelay > 0:
+            self._execPeriodicCallback = PeriodicCallback(
+                self._onStep, self._agent.stepDelay)
+
+        if self._agent.episodeDelay == 0 and self._agent.stepDelay == 0:
+            self._runUndelayed()
+        else:
+            IOLoop.current().call_later(
+                float(self._agent.episodeDelay) / 1000.0,
+                self._startEpisode)
 
 
 class AgentTrainingHandler(WebSocketHandler):
@@ -31,12 +167,11 @@ class AgentTrainingHandler(WebSocketHandler):
         super(AgentTrainingHandler, self).__init__(*args, **kwargs)
         # the agent the user is currently working on
         self._agent = Agent()
-        self._currentTrain = None
-        self._currentTest = None
-        self._execPeriodicCallback = None
         self._trainStartT = None
 
         self._inspectorsFactory = InspectorsFactory(self.write_message)
+
+        self._exec = None
 
     def open(self):
         print("WebSocket opened")
@@ -45,32 +180,15 @@ class AgentTrainingHandler(WebSocketHandler):
     # TRAIN COMMAND SUB-ROUTINES
     #############################################
     def _testingDone(self):
-        if self._execPeriodicCallback is not None:
-            self._execPeriodicCallback.stop()
-        self._execPeriodicCallback = None
-        self._currentTrain = None
+        self._exec = None
+
         self.write_message({
             'route': 'success',
             'message': "Agent successfully trained in %s" % utils.timeFormat(
                 time.time() - (self._trainStartT or time.time()))
         })
 
-    def nextTestStep(self):
-        if self._currentTest is None or self._execPeriodicCallback is None:
-            return
-        try:
-            accReturn, iStep, done = self._currentTest.next()
-            if done:
-                print "Testing Finished. Return=%d." % (accReturn)
-        except StopIteration:
-            self._testingDone()
-
     def _trainingDone(self):
-        if self._execPeriodicCallback is not None:
-            self._execPeriodicCallback.stop()
-        self._execPeriodicCallback = None
-        self._currentTrain = None
-
         # run one more episode after training with rendering enabled
         if not self._agent.isSetup:
             return self.write_message({
@@ -80,23 +198,11 @@ class AgentTrainingHandler(WebSocketHandler):
             })
 
         print "Episode %d - Final test." % (self._agent.nEpisodes)
-        self._currentTest = self._agent.test()
-        if self._agent.delay == 0:
-            for r, iE, done in self._currentTest:
-                if done:
-                    print "Testing Finished. Return=%d" % (r)
-            return self._testingDone()
-        self._execPeriodicCallback = PeriodicCallback(
-            self.nextTestStep, self._agent.delay)
-        self._execPeriodicCallback.start()
 
-    def _nextTrainStep(self):
-        if self._currentTrain is None or self._execPeriodicCallback is None:
-            return
-        try:
-            accReturn, iEpisode, iStep, done = self._currentTrain.next()
-        except StopIteration:
-            self._trainingDone()
+        self._exec = DelayedExecution(self._agent, {
+            'execFinished': self._testingDone
+        }, action='test')
+        self._exec.run()
 
     def _trainCommand(self, message):
         """
@@ -129,15 +235,10 @@ class AgentTrainingHandler(WebSocketHandler):
         self._agent.setup(problem, algo)
         self._inspectorsFactory.setup(problem, algo, self._agent)
 
-        self._currentTrain = self._agent.train()
-
-        if self._agent.delay == 0:
-            for r, iE, iS, done in self._currentTrain:
-                continue
-            return self._trainingDone()
-        self._execPeriodicCallback = PeriodicCallback(
-            self._nextTrainStep, self._agent.delay)
-        self._execPeriodicCallback.start()
+        self._exec = DelayedExecution(self._agent, {
+            'execFinished': self._trainingDone
+        }, action='train')
+        self._exec.run()
 
     def _interruptCommand(self, message):
         """
@@ -146,9 +247,8 @@ class AgentTrainingHandler(WebSocketHandler):
         training process.
         If no agent training is currently in progress, this will do nothing.
         """
-        if self._agent is not None:
-            self._agent.release()
-            self._trainingDone()
+        if self._exec is not None:
+            self._exec.interrupt()
 
     def _registerInspectorCommand(self, message):
         """

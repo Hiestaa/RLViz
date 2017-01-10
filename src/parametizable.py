@@ -96,4 +96,4 @@ class Parametizable(object):
                 raise
 
         for name, typ in self.PARAMS.iteritems():
-            setattr(self, name, kwargs.get(name) or self.PARAMS_DEFAULT[name])
+            setattr(self, name, kwargs.get(name, self.PARAMS_DEFAULT[name]))

@@ -17,7 +17,8 @@ class Agent(Parametizable):
     PARAMS = {
         'nEpisodes': ParamsTypes.Number,
         'renderFreq': ParamsTypes.Number,
-        'delay': ParamsTypes.Number
+        'stepDelay': ParamsTypes.Number,
+        'episodeDelay': ParamsTypes.Number
     }
 
     PARAMS_DOMAIN = {
@@ -29,8 +30,12 @@ class Agent(Parametizable):
             'range': (-1, float('inf')),
             'values': [-1, 10, 1000, 2000, 10000]
         },
-        'delay': {
-            'range': (0, 1000),
+        'stepDelay': {
+            'range': (0, 10000),
+            'values': [0, 1, 100]
+        },
+        'episodeDelay': {
+            'range': (0, 10000),
             'values': [0, 1, 100]
         }
     }
@@ -38,7 +43,8 @@ class Agent(Parametizable):
     PARAMS_DEFAULT = {
         'nEpisodes': 10000,
         'renderFreq': 2000,
-        'delay': 1
+        'stepDelay': 0,
+        'episodeDelay': 1
     }
 
     PARAMS_DESCRIPTION = {
@@ -49,9 +55,11 @@ interrupted.",
 If the environment has rendering capabilities, this is the frequency with which\
  a rendered episode should happen. Rendering is done server-side. \
 Set to -1 to disable.",
-        'delay': "\
-Delay in ms between steps. Set to 0 will disable delaying AS WELL AS \
-adding inspectors during training"
+        'stepDelay': "\
+Delay in ms between steps. Set to 0 will disable delaying.",
+        'episodeDelay': "\
+Delay in ms between episodes. Set to 0 will disable delaying. Note that server \
+will only reply to requests during delays."
     }
 
     def __init__(self, inspectorsFactory=None, **kwargs):
@@ -106,8 +114,6 @@ adding inspectors during training"
 
         self._algo.startEpisode(state)
 
-        # yield episodeReturn, 0, True
-
         for iStep in xrange(self._problem.maxSteps):
             if self.renderFreq != -1:
                 didRender = True
@@ -124,8 +130,8 @@ adding inspectors during training"
 
             done = self._problem.episodeDone(stepI=iStep)
 
-            # yield episodeReturn, iStep, done or (
-            #     iStep == self._problem.maxSteps - 1)
+            yield episodeReturn, self.nEpisodes, iStep, done or (
+                iStep == self._problem.maxSteps - 1)
 
             if done:
                 break
@@ -134,12 +140,13 @@ adding inspectors during training"
             self._problem.render(close=True)
 
         duration = time.time() - startT
+
+        yield (episodeReturn, self.nEpisodes, self._problem.maxSteps, True)
+
         self._inspectorsFactory.dispatch(
             Hooks.trainingProgress, self.nEpisodes,
             self.nEpisodes, episodeReturn, iStep,
             duration if not didRender else 0)
-
-        yield episodeReturn, self._problem.maxSteps, True
 
     def train(self):
         """
@@ -184,13 +191,17 @@ adding inspectors during training"
 
                 done = self._problem.episodeDone(stepI=iStep)
 
+                yield episodeReturn, iEpisode, iStep, done or (
+                    iStep == self._problem.maxSteps - 1)
+
                 if done:
                     if didRender:
                         self._problem.render(close=True)
                     break
 
             duration = time.time() - startT - timeSpentRendering
-            yield episodeReturn, iEpisode, self._problem.maxSteps, True
+            yield (episodeReturn, iEpisode, iStep, True)
+
             self._algo.endEpisode(totalReturn=episodeReturn)
             self._inspectorsFactory.dispatch(
                 Hooks.trainingProgress, iEpisode, self.nEpisodes,
