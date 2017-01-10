@@ -149,13 +149,16 @@ function, we need a way to reduce all action-values to a single values."
         * dimensionNames:
         """
         # compute the value function to the given precision.
+        # TODO: enable this to work on problems that don't hold a gym env
         if self._problem is None or self._problem._env is None:
-            print "WARNING: Inspector isn't setup."
+            print "WARNING: `%s:%s' Inspector isn't setup." % (
+                self.__class__.__name__, str(self.uid))
             data = {}
             nbDims = 0
             low = {}
             high = {}
             stepSizes = {}
+            dimensionNames = {}
         else:
             if time.time() - self._lastNotify < max(
                     float(self.precision ** 2 / 5) / 1000.0, 0.1):

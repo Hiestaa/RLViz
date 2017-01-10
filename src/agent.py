@@ -70,6 +70,7 @@ will only reply to requests during delays."
         self._inspectorsFactory = inspectorsFactory or []
 
         self.isSetup = False
+        self._minDuration = float('inf')
 
     def _checkCompatibility(self, problem, algo):
         """
@@ -140,6 +141,7 @@ will only reply to requests during delays."
             self._problem.render(close=True)
 
         duration = time.time() - startT
+        self._minDuration = min(self._minDuration, duration)
 
         yield (episodeReturn, self.nEpisodes, self._problem.maxSteps, True)
 
@@ -169,12 +171,11 @@ will only reply to requests during delays."
             self._algo.startEpisode(state)
 
             for iStep in xrange(self._problem.maxSteps):
-                if self.renderFreq != -1:
-                    if self.renderFreq == 0 or (
+                shouldRender = (
+                    self.renderFreq != -1 and (
+                        self.renderFreq == 0 or (
                             self.renderFreq > 0 and
-                            (iEpisode - 1) % self.renderFreq == 0):
-                        didRender = True
-                        self._problem.render()
+                            (iEpisode - 1) % self.renderFreq == 0)))
 
                 newState, reward, _, info = self._problem.step(action)
                 episodeReturn += reward
@@ -189,17 +190,20 @@ will only reply to requests during delays."
 
                 state = newState
 
+                if shouldRender:
+                    self._problem.render()
+
                 done = self._problem.episodeDone(stepI=iStep)
 
                 yield episodeReturn, iEpisode, iStep, done or (
                     iStep == self._problem.maxSteps - 1)
 
-                if done:
-                    if didRender:
-                        self._problem.render(close=True)
+                if done and shouldRender:
+                    self._problem.render(close=True)
                     break
 
             duration = time.time() - startT - timeSpentRendering
+            self._minDuration = min(self._minDuration, duration)
             yield (episodeReturn, iEpisode, iStep, True)
 
             self._algo.endEpisode(totalReturn=episodeReturn)

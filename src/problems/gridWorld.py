@@ -32,18 +32,18 @@ CASE_COLORS = {
     CASE_TYPES.Sand: (0.7, 0.7, 0),
     CASE_TYPES.Wall: (0, 0, 0),
     CASE_TYPES.Open: (1, 1, 1),
-    CASE_TYPES.Termination: (0, 1, 1),
+    CASE_TYPES.Termination: (0, 1, 0),
     CASE_TYPES.Trap: (1, 0, 0)
 }
 
+# Grids are indexed by their
 PREDEFINED_GRIDS = {
     'random': None,
-    'simple': """.....
-                 .....
+    'simple': """....T
                  .....
                  .XXXX
                  .....
-                 ....T"""
+                 ....."""
 }
 
 
@@ -155,7 +155,7 @@ number of termination states to generate.""",
 
         for x in xrange(self.width):
             for y in xrange(self.height):
-                self._grid[x, y] = ord(lines[y][x])
+                self._grid[x, self.height - y - 1] = ord(lines[y][x])
 
     def setup(self):
         # generate the grid
@@ -168,6 +168,8 @@ number of termination states to generate.""",
         # use 'episodeRandom' to randomize init state at each episode
         self._currentPos = self.reset(setup=True)
         self._initState = self._currentPos
+        self._grid[self._initState[0], self._initState[1]] = ord(
+            CASE_TYPES.Open)
 
     def getStatesList(self):
         return list(itertools.product(range(self.width), range(self.height)))
@@ -176,7 +178,6 @@ number of termination states to generate.""",
         return range(len(self.ACTION_NAMES))
 
     def _move(self, action, x, y):
-        print "Moving " + self.ACTION_NAMES[action]
         x, y = self._currentPos
 
         if action == 0:  # up
@@ -239,6 +240,8 @@ number of termination states to generate.""",
         from `setup`. If we don't, the 'random' init scheme should reset
         to the randomly choosen position instead of picking a new random one.
         """
+        self._done = False
+
         x = None
         if (self.startPosX == 'random' and setup) or (
                 self.startPosX == 'episodeRandom'):
@@ -261,62 +264,102 @@ number of termination states to generate.""",
         else:
             y = int(self.startPosX)
 
+        print "reset to ", x, y
+        self._currentPos = (x, y)
+        self._grid[x, y] = ord(
+            CASE_TYPES.Open)
+
+        self._trajectory = [(x, y)]
+
         return (x, y)
+
+    def _renderTrajectory(self):
+        from gym.envs.classic_control import rendering
+        points = [(
+            x * self._xstep + self._xstep / 2,
+            y * self._ystep + self._ystep / 2) for x, y in self._trajectory]
+        trajectory = rendering.make_polyline(points)
+        trajectory.set_color(0.3, 0.3, 0.3)
+        trajectory.set_linewidth(4)
+        self._viewer.add_onetime(trajectory)
 
     def render(self, mode="human", close=False):
         """
         Render the environment server-side
         """
-        if close:
+        if close and self._viewer is None:
             if self._viewer is not None:
                 self._viewer.close()
                 self._viewer = None
             return
 
         screen_width = 600
-        screen_height = 400
-
+        screen_height = 600
         if self._viewer is None:
             from gym.envs.classic_control import rendering
             self._viewer = rendering.Viewer(screen_width, screen_height)
 
+            # generate the grid
             xs, self._xstep = np.linspace(
                 0, screen_width, self.width + 1, retstep=True)
             ys, self._ystep = np.linspace(
                 0, screen_height, self.height + 1, retstep=True)
 
-            for x in xs[1:len(xs) - 2]:
-                # not including the first and last one
-                self._viewer.draw_line(
-                    (x, 0), (x, self.height))
-            for y in ys[1: len(ys) - 2]:
-                self._viewer.draw_line(
-                    (0, y), (y, self.width))
-
-            agent = rendering.make_circle(radius=2, res=10)
-            self._agentTrans = rendering.Transform(translation=(
-                self._currentPos[0] * self._xstep + (self._xstep / 2) - 1,
-                self._currentPos[1] * self._ystep + (self._ystep / 2) - 1))
-            agent.add_attr(self._agentTrans)
-            self._viewer.add_geom(agent)
-
+            # render the grid
             for x in xrange(self.width):
                 for y in xrange(self.height):
-                    l, r, t, b = (
-                        -self._xstep / 2, self._xstep / 2, self._ystep, 0)
+                    l, r, t, b = (0, self._xstep, self._ystep, 0)
                     tile = rendering.FilledPolygon([
                         (l, b), (l, t), (r, t), (r, b)])
                     tile.add_attr(rendering.Transform(translation=(
-                        x * self._xstep + (self._xstep / 2) - 1,
-                        y * self._ystep + (self._ystep / 2) - 1)))
+                        x * self._xstep, y * self._ystep)))
                     tile.set_color(*CASE_COLORS[chr(self._grid[x, y])])
+                    self._viewer.add_geom(tile)
+
+            # render starting point
+            l, r, t, b = (0, self._xstep, self._ystep, 0)
+            tile = rendering.FilledPolygon([
+                (l, b), (l, t), (r, t), (r, b)])
+            tile.add_attr(rendering.Transform(translation=(
+                self._trajectory[0][0] * self._xstep,
+                self._trajectory[0][1] * self._ystep)))
+            tile.set_color(0, 1.0, 1.0)
+            self._viewer.add_geom(tile)
+
+            # render grid lines
+            for x in xs[1:len(xs) - 1]:
+                # not including the first and last one
+                line = rendering.Line((x, 0), (x, screen_height))
+                self._viewer.add_geom(line)
+            for y in ys[1: len(ys) - 1]:
+                line = rendering.Line((0, y), (screen_width, y))
+                self._viewer.add_geom(line)
+
+            agent = rendering.make_circle(
+                radius=min(
+                    screen_width / (self.width + 1) / 10,
+                    screen_height / (self.height + 1) / 10),
+                res=30)
+            self._agentTrans = rendering.Transform(translation=(
+                self._currentPos[0] * self._xstep + (self._xstep / 2),
+                self._currentPos[1] * self._ystep + (self._ystep / 2)))
+            agent.add_attr(self._agentTrans)
+            self._viewer.add_geom(agent)
+
+        self._renderTrajectory()
 
         self._agentTrans.set_translation(
-            self._currentPos[0] * self._xstep + (self._xstep / 2) - 1,
-            self._currentPos[1] * self._ystep + (self._ystep / 2) - 1)
+            self._currentPos[0] * self._xstep + (self._xstep / 2),
+            self._currentPos[1] * self._ystep + (self._ystep / 2))
 
-        return self._viewer.render(return_rgb_array=(mode == 'rgb_array'))
+        self._viewer.render(return_rgb_array=(mode == 'rgb_array'))
+
+        if close:
+            if self._viewer is not None:
+                self._viewer.close()
+                self._viewer = None
+            return
 
     def release(self):
-        if self.viewer is not None:
-            self.viewer.close()
+        if self._viewer is not None:
+            self._viewer.close()
