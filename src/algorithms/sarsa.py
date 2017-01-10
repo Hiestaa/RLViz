@@ -92,7 +92,7 @@ class Sarsa(BaseAlgo):
         for each state and action. It therefore assumes the sate space and
         the action space is continuous
         """
-        self._setup(problem.getStatesList(), problem.getActionList())
+        self._setup(problem.getStatesList(), problem.getActionsList())
 
     def _assertSetup(self):
         if not self._isSetup:

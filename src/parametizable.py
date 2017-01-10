@@ -73,22 +73,27 @@ class Parametizable(object):
         super(Parametizable, self).__init__()
 
         for name, val in kwargs.iteritems():
-            if name not in self.PARAMS:
-                raise ParametizableException("Unexpected parameter: %s" % name)
+            try:
+                if name not in self.PARAMS:
+                    raise ParametizableException("Unexpected parameter: %s" % name)
 
-            if name not in self.PARAMS_DOMAIN:
-                raise ParametizableException(
-                    "Undeclared domain for parameter: %s" % name)
+                if name not in self.PARAMS_DOMAIN:
+                    raise ParametizableException(
+                        "Undeclared domain for parameter: %s" % name)
 
-            domain = self.PARAMS_DOMAIN[name]
-            domainValues = domain.get('values', [])
-            domainRange = domain.get('range', (0, -1))
-            if not (val in domain.get('values', []) or
-                    (val >= domainRange[0] and val <= domainRange[1])):
-                raise ParametizableException(
-                    "Out-of-domain parameter: %s (%s). Expected one of: %s or "
-                    "within range %d, %d." % (name, str(val), str(domainValues),
-                                              domainRange[0], domainRange[1]))
+                domain = self.PARAMS_DOMAIN[name]
+                domainValues = domain.get('values', [])
+                domainRange = domain.get('range', (0, -1))
+                if not (val in domain.get('values', []) or
+                        (val >= domainRange[0] and val <= domainRange[1])):
+                    raise ParametizableException(
+                        "Out-of-domain parameter: %s (%s). Expected one of: %s or "
+                        "within range %d, %d." % (name, str(val), str(domainValues),
+                                                  domainRange[0], domainRange[1]))
+            except:
+                print "Error while setting parameter %s to %s." % (
+                    name, str(val))
+                raise
 
         for name, typ in self.PARAMS.iteritems():
             setattr(self, name, kwargs.get(name) or self.PARAMS_DEFAULT[name])
