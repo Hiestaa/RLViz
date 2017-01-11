@@ -110,6 +110,7 @@ class Sarsa(BaseAlgo):
 
     def actionValue(self, state, action):
         self._assertSetup()
+        state = tuple([int(s) for s in state])
         return self._Q[state][action]
 
     def train(self, oldState, newState, action, reward, episodeI, stepI):

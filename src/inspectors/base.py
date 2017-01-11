@@ -38,8 +38,8 @@ class Base(Parametizable):
         self._agent = None
 
     def send(self, message):
-        print("[%s:%s] Inspector Notifies" % (
-            self.__class__.__name__, str(self.uid)))
+        # print("[%s:%s] Inspector Notifies" % (
+        #     self.__class__.__name__, str(self.uid)))
         self._send(message)
 
     def setup(self, problem, algo, agent):

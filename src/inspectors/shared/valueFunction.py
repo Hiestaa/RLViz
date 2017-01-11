@@ -121,6 +121,7 @@ function, we need a way to reduce all action-values to a single values."
                 self.precision,
                 retstep=True)
             for dim in xrange(nbDims)])
+
         allParams = list(itertools.product(*values))
         allActions = self._problem.getActionsList()
         reducer = max if self.reducer == 'max' else mean
@@ -149,8 +150,7 @@ function, we need a way to reduce all action-values to a single values."
         * dimensionNames:
         """
         # compute the value function to the given precision.
-        # TODO: enable this to work on problems that don't hold a gym env
-        if self._problem is None or self._problem._env is None:
+        if self._problem is None:
             print "WARNING: `%s:%s' Inspector isn't setup." % (
                 self.__class__.__name__, str(self.uid))
             data = {}
@@ -165,18 +165,19 @@ function, we need a way to reduce all action-values to a single values."
                 # avoid cluterring the socket
                 return
 
-            nbDims = len(self._problem._env.observation_space.low)
+            nbDims = self._problem.getStatesDim()
+            low, high = self._problem.getStatesBounds()
 
             data = self._computeValueFunction(
                 nbDims,
-                self._problem._env.observation_space.high,
-                self._problem._env.observation_space.low)
+                low,
+                high)
             low = {
-                key: self._problem._env.observation_space.low[k]
+                key: low[k]
                 for k, key in enumerate(self.getKeys(nbDims))
             }
             high = {
-                key: self._problem._env.observation_space.high[k]
+                key: high[k]
                 for k, key in enumerate(self.getKeys(nbDims))
             }
             stepSizes = {

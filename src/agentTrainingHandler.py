@@ -115,7 +115,9 @@ class DelayedExecution(object):
             for r, iE, iS, done in self._currentExec:
                 if done:
                     self._onEpisodeEnd()
-                    break
+                    break  # a new episode will be scheduled
+            else:  # the execution is finished
+                self._execFinished()
         else:
             # the periodic callback is setup at `run` time
             self._execPeriodicCallback.start()
@@ -132,9 +134,7 @@ class DelayedExecution(object):
 
         self._execFinished()
 
-
     def run(self):
-        print "Running action ", self._action
         self._interrupted = False
         if self._action == 'train':
             self._currentExec = self._agent.train()
@@ -181,6 +181,12 @@ class AgentTrainingHandler(WebSocketHandler):
     #############################################
     def _testingDone(self):
         self._exec = None
+        if not self._agent.isSetup:
+            return self.write_message({
+                'route': 'success',
+                'message': ("Successfull interruption, but no agent training "
+                            "was in progress.")
+            })
 
         self.write_message({
             'route': 'success',

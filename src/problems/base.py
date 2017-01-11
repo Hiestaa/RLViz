@@ -99,6 +99,12 @@ class BaseProblem(Parametizable):
         self.observationSpace = self._env.observation_space
         self.actionSpace = self._env.action_space
 
+    ###
+    # Some helper function to retrieve information about the environment.
+    # These are pre-implemented for any gym environment, and should
+    # be overriden otherwise
+    ###
+
     def getStatesList(self):
         """
         Returns the list of possible states.
@@ -112,6 +118,26 @@ class BaseProblem(Parametizable):
             return range(self.env.action_space.n)
         raise ProblemException("Continuous state space")
 
+    def getStatesDim(self):
+        """
+        Return the number of dimension of the state space
+        """
+        if self.env is None:
+            raise NotImplementedError()
+        return len(self.env.observation_space.low)
+
+    def getStatesBounds(self):
+        """
+        Returns the max and min values each dimension can take.
+        These are returned as two tuples, `low` and `high`, where both
+        are a list of as many elements as there is dimension to the state space.
+        """
+        if self.env is None:
+            raise NotImplementedError()
+        return (
+            self.env.observation_space.low,
+            self.env.observation_space.high)
+
     def getActionsList(self):
         """
         Returns the list of possible actions.
@@ -124,6 +150,8 @@ class BaseProblem(Parametizable):
         if self.DOMAIN['action'] == Spaces.Discrete:
             return range(self.env.action_space.n)
         raise NotImplementedError()
+
+    # Problem execution methods
 
     def step(self, action):
         """

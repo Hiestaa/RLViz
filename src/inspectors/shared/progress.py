@@ -37,9 +37,10 @@ to expect during the course of the execution."
         self._sendProgress = utils.makeProgress(
             0, self.frequency, self._progress)
 
-        self._progress(0, 0, 0, 0)
+        self._progress(0, 0, 0, 0, 0)
 
-    def _progress(self, pcVal, iEpisode, nEpisodes, episodeReturn):
+    def _progress(self, pcVal, iEpisode, nEpisodes, episodeReturn,
+                  episodeSteps):
         """
         Called to report execution progress.
         * pcVal: percentage of the progression, a float betwen 0 and 100
@@ -49,8 +50,9 @@ to expect during the course of the execution."
         """
         divisor = self.frequency / 100
         pcVal = float(pcVal) / divisor
-        print "Training progress: %.1f%% (episode %d/%d) - return=%d" % (
-            pcVal, iEpisode, nEpisodes, episodeReturn)
+        print(
+            "Training progress: %.1f%% (episode %d/%d) - return=%d ; steps=%d"
+            % (pcVal, iEpisode, nEpisodes, episodeReturn, episodeSteps))
 
         # need to send the uid, as well as some kind of command / reply-to /
         # routing key to the message
@@ -63,10 +65,12 @@ to expect during the course of the execution."
             'episodeReturn': episodeReturn
         })
 
-    def __call__(self, iEpisode, nEpisodes, episodeReturn, *args, **kwargs):
+    def __call__(self, iEpisode, nEpisodes, episodeReturn, episodeSteps,
+                 *args, **kwargs):
         """
         Report execution progress following the defined frequency.
         Depending on the number of episodes. some calls will be ignored
         to follow user-defined frequency.
         """
-        self._sendProgress(iEpisode, nEpisodes, episodeReturn=episodeReturn)
+        self._sendProgress(iEpisode, nEpisodes, episodeReturn=episodeReturn,
+                           episodeSteps=episodeSteps)

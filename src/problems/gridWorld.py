@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 import itertools
-import math
+import random
 
 import numpy as np
 
@@ -23,7 +23,7 @@ CASE_TYPES = utils.enum(
     Open='.',
     # terminate the episode, and get `successReward`
     Termination='T',
-    # get min(reward) = -5 x maxSteps when crossing this region and
+    # get min(reward) = -maxSteps when crossing this region and
     # terminate the episode
     Trap='!')
 
@@ -43,7 +43,59 @@ PREDEFINED_GRIDS = {
                  .....
                  .XXXX
                  .....
-                 ....."""
+                 .....""",
+    'complex': """..........!.T
+                  ..SS......!..
+                  .XWWX.....!..
+                  ..SSXXXXX.!..
+                  ........X.W..
+                  ...!....X.W..
+                  ...!....X.S..
+                  ...!....X....
+                  ........XXXXX
+                  .............""",
+    'complex2': """
+........SWSWS.......WW............!...WT
+..SS.....S!S.......WWWW...........!S.WWW
+.XWWX.....!.........WW............!..WWW
+..SSXXXXX.!XXX!XXXX!XXXXWXXX!XXXXX!.SWWW
+........X.W.........X..WWW.X...........W
+...!....X.W.........X...W..X........!!!!
+...!....X.S.........X......X............
+...!....X.....XXXXXXX......X............
+........XXXXXXX............X............
+...........X.....XXXXXXXXXXX............
+...........X.XXXXX......................
+...........X.X.WWW.XXXX.................
+...........X.X........X.................
+...........X.X..XXXXWWXXXXXXXXXXXXXXXXXX
+...........X.X..........................
+...........X.X..........................
+...........X............................
+...........XXXXXXXXXXXXXXXXXXXXXXXXXXX..
+...........X...............X............
+...........X...............X............
+...........X.......!.......X..!.........
+...........X...............X............
+...........X...............X............
+...........X...............X............
+.......XXX.X...............X............
+.........!.................X.!..........
+...X.!.SSSX................X............
+...X....WXX................X............
+...X...XXXX................X............
+...X..............!........X............
+WWWW.......................X............
+.XXXXXXXXXXXX..............X..XXXXXXXXXX
+...........WWWWWWWWWWWWWWWWXWWWWWW......
+SSSSSSSSSSSS......W........X...!........
+SSSSSSSSSSSS......W........XXXX!........
+.................WWWW......X...!........
+SXXXXX.XXXXXX......XX......X.!.!........
+WWWWWWWWWWWWXXXXXX!XX......X.!..........
+........XXXXX......XX......X.!..........
+..................!..........!..........
+"""
 }
 
 
@@ -101,11 +153,11 @@ class GridWorld(BaseProblem):
         {},
         width=20,
         height=20,
-        startPosX=0,
-        startPosY=0,
+        startPosX='episodeRandom',
+        startPosY='episodeRandom',
         nbTermStates=1,
-        successReward=100,
-        predefinedGrid='simple',
+        successReward=0,
+        predefinedGrid='complex2',
         **BaseProblem.PARAMS_DEFAULT)
 
     PARAMS_DESCRIPTION = utils.extends(
@@ -148,7 +200,7 @@ number of termination states to generate.""",
 
     def _setupPreset(self):
         rep = PREDEFINED_GRIDS[self.predefinedGrid]
-        lines = [l.strip() for l in rep.split('\n')]
+        lines = [l.strip() for l in rep.split('\n') if len(l.strip()) > 0]
         self.height = len(lines)
         self.width = len(lines[0])  # all lines should have the same length
         self._grid = np.zeros([self.width, self.height], dtype=int)
@@ -168,11 +220,23 @@ number of termination states to generate.""",
         # use 'episodeRandom' to randomize init state at each episode
         self._currentPos = self.reset(setup=True)
         self._initState = self._currentPos
-        self._grid[self._initState[0], self._initState[1]] = ord(
-            CASE_TYPES.Open)
 
     def getStatesList(self):
         return list(itertools.product(range(self.width), range(self.height)))
+
+    def getStatesDim(self):
+        """
+        Return the number of dimension of the state space
+        """
+        return 2
+
+    def getStatesBounds(self):
+        """
+        Returns the max and min values each dimension can take.
+        These are returned as two tuples, `low` and `high`, where both
+        are a list of as many elements as there is dimension to the state space.
+        """
+        return (0, 0), (self.width - 1, self.height - 1)
 
     def getActionsList(self):
         return range(len(self.ACTION_NAMES))
@@ -221,7 +285,7 @@ number of termination states to generate.""",
             CASE_TYPES.Sand: -2,
             CASE_TYPES.Open: -1,
             CASE_TYPES.Termination: self.successReward,
-            CASE_TYPES.Trap: -5 * self.maxSteps
+            CASE_TYPES.Trap: -(self.maxSteps - len(self._trajectory))
         }[chr(self._grid[x, y])]
 
         # termination state
@@ -245,7 +309,7 @@ number of termination states to generate.""",
         x = None
         if (self.startPosX == 'random' and setup) or (
                 self.startPosX == 'episodeRandom'):
-            x = math.randint(0, self.width - 1)
+            x = random.randint(0, self.width - 1)
         elif (self.startPosX == 'random' and not setup):
             x = self._initState[0]
         elif self.startPosX == 'center':
@@ -256,7 +320,7 @@ number of termination states to generate.""",
         y = None
         if (self.startPosX == 'random' and setup) or (
                 self.startPosX == 'episodeRandom'):
-            y = math.randint(0, self.height - 1)
+            y = random.randint(0, self.height - 1)
         elif (self.startPosY == 'random' and not setup):
             y = self._initState[1]
         elif self.startPosX == 'center':
@@ -264,11 +328,7 @@ number of termination states to generate.""",
         else:
             y = int(self.startPosX)
 
-        print "reset to ", x, y
         self._currentPos = (x, y)
-        self._grid[x, y] = ord(
-            CASE_TYPES.Open)
-
         self._trajectory = [(x, y)]
 
         return (x, y)
@@ -280,7 +340,7 @@ number of termination states to generate.""",
             y * self._ystep + self._ystep / 2) for x, y in self._trajectory]
         trajectory = rendering.make_polyline(points)
         trajectory.set_color(0.3, 0.3, 0.3)
-        trajectory.set_linewidth(4)
+        trajectory.set_linewidth(3)
         self._viewer.add_onetime(trajectory)
 
     def render(self, mode="human", close=False):
@@ -337,8 +397,8 @@ number of termination states to generate.""",
 
             agent = rendering.make_circle(
                 radius=min(
-                    screen_width / (self.width + 1) / 10,
-                    screen_height / (self.height + 1) / 10),
+                    screen_width / (self.width + 1) / 3,
+                    screen_height / (self.height + 1) / 3),
                 res=30)
             self._agentTrans = rendering.Transform(translation=(
                 self._currentPos[0] * self._xstep + (self._xstep / 2),
