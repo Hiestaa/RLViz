@@ -18,21 +18,26 @@ class Agent(Parametizable):
         'nEpisodes': ParamsTypes.Number,
         'renderFreq': ParamsTypes.Number,
         'stepDelay': ParamsTypes.Number,
-        'episodeDelay': ParamsTypes.Number
+        'episodeDelay': ParamsTypes.Number,
+        'renderStepDelay': ParamsTypes.Number
     }
 
     PARAMS_DOMAIN = {
         'nEpisodes': {
             'range': (0, float('inf')),
-            'values': [1000, 10000, 100000]
+            'values': [10, 100, 1000, 10000, 100000]
         },
         'renderFreq': {
             'range': (-1, float('inf')),
-            'values': ['testOnly', -1, 10, 1000, 2000, 10000]
+            'values': ['testOnly', -1, 10, 100, 1000, 2000, 10000]
         },
         'stepDelay': {
             'range': (0, 10000),
             'values': [0, 1, 100]
+        },
+        'renderStepDelay': {
+            'range': (0, 10000),
+            'values': [0, 1, 100, 1000]
         },
         'episodeDelay': {
             'range': (0, 10000),
@@ -44,7 +49,8 @@ class Agent(Parametizable):
         'nEpisodes': 10000,
         'renderFreq': 2000,
         'stepDelay': 0,
-        'episodeDelay': 1
+        'episodeDelay': 1,
+        'renderStepDelay': 0
     }
 
     PARAMS_DESCRIPTION = {
@@ -57,6 +63,7 @@ If the environment has rendering capabilities, this is the frequency with which\
 Set to -1 to disable.",
         'stepDelay': "\
 Delay in ms between steps. Set to 0 will disable delaying.",
+        'renderStepDelay': "Delay in ms between steps while rendering.",
         'episodeDelay': "\
 Delay in ms between episodes. Set to 0 will disable delaying. Note that server \
 will only reply to requests during delays."
@@ -71,6 +78,8 @@ will only reply to requests during delays."
 
         self.isSetup = False
         self._minDuration = float('inf')
+        self._iEpisode = 0
+        self._isTesting = False
 
     def _checkCompatibility(self, problem, algo):
         """
@@ -105,6 +114,7 @@ will only reply to requests during delays."
         indicating whether the episode is terminated.
         If rendering wasn't specifically disabled, the episode will be rendered.
         """
+        self._isTesting = True
         state = self._problem.reset()
         action = self._algo.pickAction(
             state, self.nEpisodes, optimize=True)
@@ -148,7 +158,20 @@ will only reply to requests during delays."
         self._inspectorsFactory.dispatch(
             Hooks.trainingProgress, self.nEpisodes,
             self.nEpisodes, episodeReturn, iStep,
-            duration if not didRender else 0)
+            duration if not didRender else self._minDuration)
+        self._isTesting = False
+
+    def shouldRender(self):
+        # render if we are in testing and the renderFreq isn't -1
+        shouldRender = self._isTesting and self.renderFreq != -1
+        # or, alternatively, render if renderFreq is neither -1 nor 'testOnly'
+        # AND it is either 0 or the module of renderFreq is 0
+        shouldRender |= (
+            self.renderFreq != -1 and self.renderFreq != 'testOnly' and
+            (self.renderFreq == 0 or (
+                self.renderFreq > 0 and
+                (self._iEpisode - 1) % self.renderFreq == 0)))
+        return shouldRender
 
     def train(self):
         """
@@ -160,22 +183,18 @@ will only reply to requests during delays."
         Use inspectors and associated hook functions to gather more
         information about the execution of the environment.
         """
-        for iEpisode in xrange(0, self.nEpisodes):
+        for self._iEpisode in xrange(0, self.nEpisodes):
             startT = time.time()
             timeSpentRendering = 0
             state = self._problem.reset()
-            action = self._algo.pickAction(state, iEpisode)
+            action = self._algo.pickAction(state, self._iEpisode)
             episodeReturn = 0
             didRender = False
 
             self._algo.startEpisode(state)
 
             for iStep in xrange(self._problem.maxSteps):
-                shouldRender = (
-                    self.renderFreq != -1 and self.renderFreq != 'testOnly' and
-                    (self.renderFreq == 0 or (
-                        self.renderFreq > 0 and
-                        (iEpisode - 1) % self.renderFreq == 0)))
+                shouldRender = self.shouldRender()
 
                 newState, reward, _, info = self._problem.step(action)
                 episodeReturn += reward
@@ -185,7 +204,7 @@ will only reply to requests during delays."
                     newState=newState,
                     action=action,
                     reward=reward,
-                    episodeI=iEpisode,
+                    episodeI=self._iEpisode,
                     stepI=iStep)
 
                 state = newState
@@ -195,7 +214,7 @@ will only reply to requests during delays."
 
                 done = self._problem.episodeDone(stepI=iStep)
 
-                yield episodeReturn, iEpisode, iStep, False
+                yield episodeReturn, self._iEpisode, iStep, False
 
                 if done:
                     if shouldRender:
@@ -204,12 +223,13 @@ will only reply to requests during delays."
 
             duration = time.time() - startT - timeSpentRendering
             self._minDuration = min(self._minDuration, duration)
-            yield (episodeReturn, iEpisode, iStep, True)
+            yield (episodeReturn, self._iEpisode, iStep, True)
 
             self._algo.endEpisode(totalReturn=episodeReturn)
             self._inspectorsFactory.dispatch(
-                Hooks.trainingProgress, iEpisode, self.nEpisodes,
-                episodeReturn, iStep, duration if not didRender else 0)
+                Hooks.trainingProgress, self._iEpisode, self.nEpisodes,
+                episodeReturn, iStep,
+                duration if not didRender else self._minDuration)
 
     def release(self):
         """

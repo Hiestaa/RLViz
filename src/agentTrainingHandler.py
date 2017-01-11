@@ -111,7 +111,11 @@ class DelayedExecution(object):
         if self._currentExec is None:
             return
 
-        if self._agent.stepDelay == 0 or self._execPeriodicCallback is None:
+        canGoQuick = (
+            self._agent.stepDelay == 0 and not self._agent.shouldRender())
+        canGoQuick |= (
+            self._agent.renderStepDelay == 0 and self._agent.shouldRender())
+        if canGoQuick:
             for r, iE, iS, done in self._currentExec:
                 if done:
                     self._onEpisodeEnd()
@@ -119,7 +123,19 @@ class DelayedExecution(object):
             else:  # the execution is finished
                 self._execFinished()
         else:
-            # the periodic callback is setup at `run` time
+            # stop just in case, better twice than none
+            if self._execPeriodicCallback is not None:
+                self._execPeriodicCallback.stop()
+
+            # setup the callback for this episode
+            # is it costly to re-create one at each episode?
+            if self._agent.shouldRender():
+                self._execPeriodicCallback = PeriodicCallback(
+                    self._onStep, self._agent.renderStepDelay)
+            else:
+                self._execPeriodicCallback = PeriodicCallback(
+                    self._onStep, self._agent.stepDelay)
+
             self._execPeriodicCallback.start()
 
     def _runUndelayed(self):
@@ -141,16 +157,13 @@ class DelayedExecution(object):
         else:
             self._currentExec = self._agent.test()
 
-        if self._agent.stepDelay > 0:
-            self._execPeriodicCallback = PeriodicCallback(
-                self._onStep, self._agent.stepDelay)
-
-        if self._agent.episodeDelay == 0 and self._agent.stepDelay == 0:
+        if all(v == 0 for v in [
+                self._agent.episodeDelay,
+                self._agent.stepDelay,
+                self._agent.renderStepDelay]):
             self._runUndelayed()
         else:
-            IOLoop.current().call_later(
-                float(self._agent.episodeDelay) / 1000.0,
-                self._startEpisode)
+            self._startEpisode()
 
 
 class AgentTrainingHandler(WebSocketHandler):
