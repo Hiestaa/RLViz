@@ -69,21 +69,21 @@ PREDEFINED_GRIDS = {
 ...........X.X.WWW.XXXX.................
 ...........X.X........X.................
 ...........X.X..XXXXWWXXXXXXXXXXXXXXXXXX
-...........X.X..........................
-...........X.X..........................
-...........X............................
-...........XXXXXXXXXXXXXXXXXXXXXXXXXXX..
+...........X.X..............!...........
+...........X.X..............!.!!!!.XXXX.
+...........X................SSWWW!.X....
+...........XXXXXXXXXXXXXXXXXXXWWWXX!!.!!
+...........X...............X..WWW.......
+...........X...............X.......!!!..
+...........X.......!.......X..!!!..!!!..
+...........X...............X..!!!..!!!..
+...........X...............X..!!!.......
 ...........X...............X............
-...........X...............X............
-...........X.......!.......X..!.........
-...........X...............X............
-...........X...............X............
-...........X...............X............
-.......XXX.X...............X............
-.........!.................X.!..........
-...X.!.SSSX................X............
-...X....WXX................X............
-...X...XXXX................X............
+.......XXX.X...............XXXXXXXX!.!.!
+.........!.................X......X.....
+...X.!.SSSX................X.XXXX.X.!.!.
+...X....WXX................X...!X.X.....
+...X...XXXX................XXXXXX.X!.!.!
 ...X..............!........X............
 WWWW.......................X............
 .XXXXXXXXXXXX..............X..XXXXXXXXXX
@@ -110,6 +110,11 @@ class GridWorld(BaseProblem):
         startPosX=ParamsTypes.Number,
         startPosY=ParamsTypes.Number,
         successReward=ParamsTypes.Number,
+        stepReward=ParamsTypes.Number,
+        sandReward=ParamsTypes.Number,
+        waterReward=ParamsTypes.Number,
+        failureReward=ParamsTypes.Number,
+        trapReward=ParamsTypes.Number,
         **BaseProblem.PARAMS)
 
     PARAMS_DOMAIN = utils.extends(
@@ -128,6 +133,26 @@ class GridWorld(BaseProblem):
             'values': (0, 100),
             'range': (0, 10000)
         },
+        stepReward={
+            'values': (-1, 0, 1),
+            'range': (-100, 100)
+        },
+        sandReward={
+            'values': (-5, -1, 0),
+            'range': (-1000, 1000)
+        },
+        waterReward={
+            'values': (-50, -10, -2, 0),
+            'range': (-1000, 1000)
+        },
+        failureReward={
+            'values': (-50, -10, -2, 0),
+            'range': (-1000, 1000)
+        },
+        trapReward={
+            'values': (-50, -10, -2, 0),
+            'range': (-1000, 1000)
+        },
         **BaseProblem.PARAMS_DOMAIN)
 
     PARAMS_DEFAULT = utils.extends(
@@ -135,6 +160,11 @@ class GridWorld(BaseProblem):
         startPosX='episodeRandom',
         startPosY='episodeRandom',
         successReward=0,
+        stepReward=-1,
+        sandReward=-5,
+        waterReward=-10,
+        failureReward=0,
+        trapReward=-50,
         **BaseProblem.PARAMS_DEFAULT)
 
     PARAMS_DESCRIPTION = utils.extends(
@@ -142,6 +172,14 @@ class GridWorld(BaseProblem):
         startPosX="Starting position for the agent along the X axis.",
         startPosY="Starting position for the agent along the Y axis.",
         successReward="Success reward upon reaching a termination state.",
+        stepReward="Reward received at each step into an 'Open' state.",
+        sandReward="Reward received when stepping into a 'Sand' state.",
+        waterReward="Reward received when stepping into a 'Water' state.",
+        failureReward="Reward received when failing to reach a termination \
+state after the configured number of steps.",
+        trapReward="Reward received when stepping into a 'Trap' state.\
+This cummulates to the negative reward already got that simulate that \
+all the steps just got consumed.",
         **BaseProblem.PARAMS_DESCRIPTION)
 
     DOMAIN = {
@@ -168,6 +206,7 @@ class GridWorld(BaseProblem):
 
         self._width = 0
         self._height = 0
+        self._nbSteps = 0
 
     def _setupGrid(self):
         # setup the grid, the `_width` and `_height` parameters
@@ -240,11 +279,13 @@ class GridWorld(BaseProblem):
             return self._currentPos, -1, self._done, {}
 
         reward = {
-            CASE_TYPES.Water: -5,
-            CASE_TYPES.Sand: -2,
-            CASE_TYPES.Open: -1,
+            CASE_TYPES.Water: self.waterReward,
+            CASE_TYPES.Sand: self.sandReward,
+            CASE_TYPES.Open: self.stepReward,
             CASE_TYPES.Termination: self.successReward,
-            CASE_TYPES.Trap: -(self.maxSteps - len(self._trajectory))
+            CASE_TYPES.Trap: (
+                -(self.maxSteps - len(self._trajectory)) + self.failureReward +
+                self.trapReward)
         }[chr(self._grid[x, y])]
 
         # termination state
@@ -254,6 +295,11 @@ class GridWorld(BaseProblem):
         self._currentPos = (x, y)
 
         self._trajectory.append(self._currentPos)
+        self._nbSteps += 1
+
+        if self._nbSteps >= self.maxSteps and not self._done:
+            reward += self.failureReward
+
         return self._currentPos, reward, self._done, {}
 
     def reset(self, setup=False):
@@ -264,6 +310,7 @@ class GridWorld(BaseProblem):
         to the randomly choosen position instead of picking a new random one.
         """
         self._done = False
+        self._nbSteps = 0
 
         x = None
         if (self.startPosX == 'random' and setup) or (
