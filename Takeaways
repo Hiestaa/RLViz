@@ -1,0 +1,4 @@
+Here are listed the main take aways I can get from this experiment.
+
+* It is interesting how Sarsa requires a high training step to converge properly in the GridWorld case,
+  but a lower one for the MontainCar problem
