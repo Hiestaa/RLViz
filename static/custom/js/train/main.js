@@ -79,7 +79,8 @@ function TrainComponent($container) {
 
         self._agent = new Agent(self._$container.find('#inspectors-panel'), {
             error: self.onError,
-            success: self.onSuccess
+            success: self.onSuccess,
+            disconnect: self.onDisconnect
         });
 
         self._$container.find('#submit').click(self.onTrain);
@@ -100,6 +101,13 @@ function TrainComponent($container) {
             self._hyperParametersOverride.getAgentParams());
         self._$container.find('#submit').toggleClass('hidden')
         self._$container.find('#interrupt').toggleClass('hidden')
+    }
+
+    self.onDisconnect = function () {
+        if (self._$container.find('#submit').hasClass('hidden')) {
+            self._$container.find('#submit').toggleClass('hidden');
+            self._$container.find('#interrupt').toggleClass('hidden');
+        }
     }
 
     // called when clicking on the 'interrupt' button that should interrupt any

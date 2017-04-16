@@ -40,30 +40,32 @@ class Discretizer(object):
     to some number of digits that depends on the precision and the boundaries
     of the space
     """
-    def __init__(self, space, precision=10):
+    def __init__(self, low, high, precision=10):
         """
-        Build the discretized on the given N-dimensional space, at the given
-        precision.
+        Build the discretized on the given N-dimensional space described by the
+        given box, at the given precision.
+        * low: low value for each dimension of the box
+        * high: high value for each dimension of the box
+        * precision: precision of the discretized space
         """
         super(Discretizer, self).__init__()
-        self._space = space
         self.precision = precision
 
-        self.low = self._space.low
-        self.high = self._space.high
+        self.low = low
+        self.high = high
 
         values, self.steps = zip(*[
             np.linspace(
-                self._space.low[dim],
-                self._space.high[dim],
+                self.low[dim],
+                self.high[dim],
                 self.precision,
                 retstep=True)
-            for dim in xrange(len(self._space.low))
+            for dim in xrange(len(self.low))
         ])
         self.low = [round(v, self._getNDigits(dim))
-                    for dim, v in enumerate(self._space.low)]
+                    for dim, v in enumerate(self.low)]
         self.high = [round(v, self._getNDigits(dim))
-                     for dim, v in enumerate(self._space.high)]
+                     for dim, v in enumerate(self.high)]
         self.steps = [round(v, self._getNDigits(dim))
                       for dim, v in enumerate(self.steps)]
 
@@ -86,10 +88,10 @@ class Discretizer(object):
 
         values = [
             np.linspace(
-                self._space.low[dim],
-                self._space.high[dim],
+                self.low[dim],
+                self.high[dim],
                 self.precision)
-            for dim in xrange(len(self._space.low))
+            for dim in xrange(len(self.low))
         ]
         rvalues = [
             [round(self.low[dim] + n * self.steps[dim],

@@ -8,8 +8,9 @@ to the corresponding inspector.
 function Agent($inspectorsPanel, callbacks) {
     var self = this;
 
-    self._errorCb = (callbacks || {}).error
-    self._successCb = (callbacks || {}).success
+    self._errorCb = (callbacks || {}).error;
+    self._successCb = (callbacks || {}).success;
+    self._disconnectCb = (callbacks || {}).disconnect;
 
     // stores all user-defined data for problem, algo and agent
     // required to re-create the whole env upon disconnect
@@ -55,6 +56,7 @@ function Agent($inspectorsPanel, callbacks) {
 
     self._onClose = function () {
         alerts.danger("Connection Interrupted. Attempting to reconnect...");
+        self._disconnectCb()
     }
 
     self._onMessage = function (message) {

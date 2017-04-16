@@ -46,8 +46,8 @@ class Agent(Parametizable):
     }
 
     PARAMS_DEFAULT = {
-        'nEpisodes': 10000,
-        'renderFreq': 2000,
+        'nEpisodes': 2500,
+        'renderFreq': 500,
         'stepDelay': 0,
         'episodeDelay': 1,
         'renderStepDelay': 0

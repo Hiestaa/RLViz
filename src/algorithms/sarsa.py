@@ -46,7 +46,7 @@ class Sarsa(BaseAlgo):
 
     PARAMS_DEFAULT = {
         'epsilon': '1/k',
-        'alpha': 1.0,
+        'alpha': 0.1,
         'gamma': 1.0
     }
 
@@ -66,9 +66,6 @@ class Sarsa(BaseAlgo):
         super(Sarsa, self).__init__(**kwargs)
         self._Q = {}
         self._isSetup = False
-
-        self._a = self.alpha
-        self._g = self.gamma
 
     def _setup(self, allStates, allActions):
         """
@@ -110,8 +107,28 @@ class Sarsa(BaseAlgo):
 
     def actionValue(self, state, action):
         self._assertSetup()
-        state = tuple([int(s) for s in state])
-        return self._Q[state][action]
+        # need to put a int(s) here because state are initialized by range
+        # byt this screws up rounding starsa that use the hash capability of the
+        # dict as a sparse matrix to store information about floating point
+        state = tuple([s for s in state])
+        try:
+            return self._Q[state][action]
+        except KeyError:
+            v = None
+            try:
+                v = self._Q[state]
+            except KeyError:
+                logging.error(
+                    "Unable to read value function for state: %s", str(state))
+                return 0
+            try:
+                v = v[action]
+            except KeyError:
+                logging.error(
+                    "Unable to read action `%s' in value function: %s",
+                    str(action), str(v))
+                return 0
+            return v
 
     def train(self, oldState, newState, action, reward, episodeI, stepI):
         """
@@ -128,15 +145,17 @@ class Sarsa(BaseAlgo):
         # sample a new action following e-greedy
         newAction = self.pickAction(newState, episodeI=episodeI)
         # updates the action value function.
-        # we increase a little bit the value of Q for the old state and action
-        # we just took a little bit (=learning rate) ...
-        self._Q[oldState][action] = self._Q[oldState][action] + self._a *\
+        # Increase a little bit ( = learning rate) the value of Q for the old
+        #  state / action pair  ...
+        a = self.alpha
+        g = self.gamma
+        self._Q[oldState][action] = self._Q[oldState][action] + a *\
             (reward -  # ... in the direction of the error between the
              # reward we got and what we thought the reward would be
              self._Q[oldState][action] +
              # ... plus a factor of how good we think the next state will be
              # (this is called 'bootstrapping')
-             self._g * self._Q[newState][newAction])
+             g * self._Q[newState][newAction])
         return newAction
 
 
@@ -159,7 +178,7 @@ class RoundingSarsa(Sarsa):
         'range': (5, 10000)
     }, **Sarsa.PARAMS_DOMAIN)
 
-    PARAMS_DEFAULT = utils.extends({}, precision=100, **Sarsa.PARAMS_DEFAULT)
+    PARAMS_DEFAULT = utils.extends({}, precision=10, **Sarsa.PARAMS_DEFAULT)
 
     PARAMS_DESCRIPTION = utils.extends(
         {}, precision="""
@@ -184,13 +203,12 @@ problem's observation space hold a high number dimensions.""",
     def setup(self, problem):
         # expect a continuous state space
         self._discretizer = Discretizer(
-            problem.observationSpace,
-            self.precision)
+            *problem.getStatesBounds(), precision=self.precision)
 
         allStates = list(self._discretizer.discretize())
 
         # expect a discrete action state
-        self._allActions = range(problem.actionSpace.n)
+        self._allActions = problem.getActionsList()
 
         self._setup(allStates, self._allActions)
 

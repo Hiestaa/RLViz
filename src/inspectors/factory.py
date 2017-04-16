@@ -62,7 +62,6 @@ class InspectorsFactory(object):
         """
         inspector = Inspectors[name](self.send, uid, **params)
         if self._agent is not None:
+            # setup the inspector no if we can..
             inspector.setup(self._problem, self._algo, self._agent)
-        else:
-            print "WARNING: Unable to setup inspector - factory isn't setup."
         self._hookedUp[inspector.HOOK].append(inspector)

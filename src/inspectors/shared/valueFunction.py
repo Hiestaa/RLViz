@@ -46,7 +46,7 @@ class ValueFunctionInspector(Base):
         }
     }
     PARAMS_DEFAULT = {
-        'frequency': 1000,
+        'frequency': 100,
         'precision': 20,
         'shape': '3D',
         'reducer': 'max'

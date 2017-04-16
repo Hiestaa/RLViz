@@ -204,8 +204,8 @@ all the steps just got consumed.",
         self._ystep = 0
         self._xstep = 0
 
-        self._width = 0
-        self._height = 0
+        self._width = 0  # setup during `setupGrid` step
+        self._height = 0  # setup during `setupGrid` step
         self._nbSteps = 0
 
     def _setupGrid(self):
@@ -220,7 +220,8 @@ all the steps just got consumed.",
         self._initState = self._currentPos
 
     def getStatesList(self):
-        return list(itertools.product(range(self._width), range(self._height)))
+        return [tuple(float(x) for x in v) for v in itertools.product(
+            range(self._width), range(self._height))]
 
     def getStatesDim(self):
         """

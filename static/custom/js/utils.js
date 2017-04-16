@@ -29,7 +29,7 @@ function WSConnect(url, onOpen, onMessage, onClose) {
     var api = {
         send: send,
         close: function () {
-            socket.close()
+            socket.close();
         },
         isReady: function () {
             return _ready && !_interrupted;
