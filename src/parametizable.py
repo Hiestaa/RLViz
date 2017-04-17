@@ -2,7 +2,8 @@
 
 from __future__ import unicode_literals
 
-
+import logging
+logger = logging.getLogger(__name__)
 import utils
 
 
@@ -75,7 +76,8 @@ class Parametizable(object):
         for name, val in kwargs.iteritems():
             try:
                 if name not in self.PARAMS:
-                    raise ParametizableException("Unexpected parameter: %s" % name)
+                    raise ParametizableException("Unexpected parameter: %s"
+                                                 % name)
 
                 if name not in self.PARAMS_DOMAIN:
                     raise ParametizableException(
@@ -87,11 +89,13 @@ class Parametizable(object):
                 if not (val in domain.get('values', []) or
                         (val >= domainRange[0] and val <= domainRange[1])):
                     raise ParametizableException(
-                        "Out-of-domain parameter: %s (%s). Expected one of: %s or "
-                        "within range %d, %d." % (name, str(val), str(domainValues),
-                                                  domainRange[0], domainRange[1]))
+                        "Out-of-domain parameter: %s (%s). Expected one of: %s "
+                        "or within range %d, %d." % (
+                            name, str(val), str(domainValues),
+                            domainRange[0], domainRange[1]))
             except:
-                print "Error while setting parameter %s to %s." % (
+                logger.error(
+                    "Error while setting parameter %s to %s.",
                     name, str(val))
                 raise
 

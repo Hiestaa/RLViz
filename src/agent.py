@@ -3,6 +3,8 @@
 from __future__ import unicode_literals
 
 import time
+import logging
+logger = logging.getLogger(__name__)
 
 from parametizable import Parametizable
 from consts import ParamsTypes, Spaces, Hooks
@@ -98,6 +100,10 @@ will only reply to requests during delays."
                                       problem.DOMAIN[space]))
 
     def setup(self, problem, algo):
+        logger.info(
+            "Agent setup: Algorithm=%s, Problem=%s",
+            algo.__class__.__name__,
+            problem.__class__.__name__)
         self._checkCompatibility(problem, algo)
         self._problem = problem
         self._algo = algo

@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 import json
 import time
 import logging
+logger = logging.getLogger(__name__)
 
 from tornado.websocket import WebSocketHandler
 from tornado.web import HTTPError
@@ -56,7 +57,7 @@ class DelayedExecution(object):
 
         self._interrupted = False
 
-        print(
+        logger.info(
             "Delayed callback setup - episodeDelay =", self._agent.episodeDelay,
             " - stepDelay =", self._agent.stepDelay)
 
@@ -73,7 +74,7 @@ class DelayedExecution(object):
 
     def _onStep(self):
         if self._interrupted:
-            print "onStep: Interrupted execution"
+            logger.info("onStep: Interrupted execution")
             return
 
         if self._currentExec is None or self._execPeriodicCallback is None:
@@ -90,7 +91,7 @@ class DelayedExecution(object):
     def _onEpisodeEnd(self):
         self._hookEpisodeFinished()
         if self._interrupted:
-            print "onEpisodeEnd: Interrupted execution"
+            logger.info("onEpisodeEnd: Interrupted execution")
             return
 
         if self._execPeriodicCallback:
@@ -105,7 +106,7 @@ class DelayedExecution(object):
 
     def _startEpisode(self):
         if self._interrupted:
-            print "startEpisode: Interrupted execution"
+            logger.info("startEpisode: Interrupted execution")
             return
 
         if self._currentExec is None:
@@ -187,7 +188,7 @@ class AgentTrainingHandler(WebSocketHandler):
         self._exec = None
 
     def open(self):
-        print("WebSocket opened")
+        logger.info("WebSocket opened")
 
     #############################################
     # TRAIN COMMAND SUB-ROUTINES
@@ -216,7 +217,7 @@ class AgentTrainingHandler(WebSocketHandler):
                             "was in progress.")
             })
 
-        print "Episode %d - Final test." % (self._agent.nEpisodes)
+        logger.info("Episode %d - Final test." % (self._agent.nEpisodes))
 
         self._exec = DelayedExecution(self._agent, {
             'execFinished': self._testingDone
@@ -300,12 +301,12 @@ class AgentTrainingHandler(WebSocketHandler):
         }
 
         if message.get('command') in commands:
-            print "[AgentTraining] Executing command: %s" % (
-                message.get('command'))
+            logger.info("[AgentTraining] Executing command: %s" % (
+                message.get('command')))
             try:
                 return commands[message.get('command')](message)
             except Exception as e:
-                logging.exception(e)
+                logger.exception(e)
                 return self.write_message({
                     'route': 'error',
                     'message': str(e)
@@ -315,4 +316,4 @@ class AgentTrainingHandler(WebSocketHandler):
                         % message.get('command', 'undefined'))
 
     def on_close(self):
-        print("WebSocket closed")
+        logger.info("WebSocket closed")

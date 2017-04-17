@@ -2,6 +2,9 @@
 
 from __future__ import unicode_literals
 
+import logging
+logger = logging.getLogger(__name__)
+
 from inspectors.base import Base
 import utils
 from consts import ParamsTypes, Hooks
@@ -50,7 +53,7 @@ to expect during the course of the execution."
         """
         divisor = self.frequency / 100
         pcVal = float(pcVal) / divisor
-        print(
+        logger.info(
             "Training progress: %.1f%% (episode %d/%d) - return=%d ; steps=%d"
             % (pcVal, iEpisode, nEpisodes, episodeReturn, episodeSteps))
 

@@ -2,14 +2,14 @@
 
 from __future__ import unicode_literals
 
-import itertools
 import time
-
-import numpy as np
+import logging
+logger = logging.getLogger(__name__)
 
 from inspectors.base import Base
+from algorithms.base import Discretizer
 import utils
-from consts import ParamsTypes, Hooks
+from consts import ParamsTypes, Hooks, Spaces
 
 
 def mean(vals):
@@ -74,10 +74,11 @@ function, we need a way to reduce all action-values to a single values."
         self._lastNotify = time.time()
         self._notifyIfNotTooFrequent = utils.makeProgress(
             0, self.frequency, self._notify)
-        self._stepSizes = []
 
     def setup(self, problem, algo, agent):
         super(ValueFunctionInspector, self).setup(problem, algo, agent)
+        self._discretizer = Discretizer(
+            *problem.getStatesBounds(), precision=self.precision)
         self._notify(0, 0, 0)
 
     def getKeys(self, nbDims):
@@ -96,7 +97,7 @@ function, we need a way to reduce all action-values to a single values."
                 'param%d' % x for x in xrange(1, nbDims)
             ]
 
-    def _computeValueFunction(self, nbDims, low, high):
+    def _computeValueFunction(self, nbDims, low, high, retstep=False):
         """
         Compute the value-function in `nbDims` dimension where for each
         dimension `x` the lowest value is `low[x]` and the highest value is
@@ -112,29 +113,40 @@ function, we need a way to reduce all action-values to a single values."
           parameters.
         * `param<I>`: starting at 1, value of the ith dimension of the sample
           of the state space (or (i+1)th dimension if plotting in 3D).
+        If `retstep` is set to True, also returns the size of the steps
         """
+        # algorithms performing in discrete space will have a discrete
+        # value function that cannot be evaluated at any point - only on the
+        # ones for which they have been setup based on the problem it has been
+        # setup to solve
+        def __round(vec):
+            return tuple(int(x) for x in vec)
 
-        values, self._stepSizes = zip(*[
-            np.linspace(
-                low[dim],
-                high[dim],
-                self.precision,
-                retstep=True)
-            for dim in xrange(nbDims)])
+        def __notround(vec):
+            return vec
 
-        allParams = list(itertools.product(*values))
+        _round = __notround
+        if self._algo.DOMAIN['state'] == Spaces.Discrete:
+            _round = __round
+
+        allParams, stepSizes = self._discretizer.discretize(retstep=True)
+
         allActions = self._problem.getActionsList()
         reducer = max if self.reducer == 'max' else mean
 
         # returns a list
-        return [
+        data = [
             utils.extends({
-                key: state[k] for k, key in enumerate(self.getKeys(nbDims))
+                key: state[k]
+                for k, key in enumerate(self.getKeys(nbDims))
             }, z=reducer([
-                self._algo.actionValue(state, action)
+                self._algo.actionValue(_round(state), action)
                 for action in allActions]))
             for state in allParams
         ]
+        if retstep:
+            return data, stepSizes
+        return data
 
     def _notify(self, pcVal, iEpisode, nEpisodes):
         """
@@ -151,7 +163,8 @@ function, we need a way to reduce all action-values to a single values."
         """
         # compute the value function to the given precision.
         if self._problem is None:
-            print "WARNING: `%s:%s' Inspector isn't setup." % (
+            logger.warning(
+                "WARNING: `%s:%s' Inspector isn't setup.",
                 self.__class__.__name__, str(self.uid))
             data = {}
             nbDims = 0
@@ -168,10 +181,8 @@ function, we need a way to reduce all action-values to a single values."
             nbDims = self._problem.getStatesDim()
             low, high = self._problem.getStatesBounds()
 
-            data = self._computeValueFunction(
-                nbDims,
-                low,
-                high)
+            data, stepSizes = self._computeValueFunction(
+                nbDims, low, high, retstep=True)
             low = {
                 key: low[k]
                 for k, key in enumerate(self.getKeys(nbDims))
@@ -181,7 +192,7 @@ function, we need a way to reduce all action-values to a single values."
                 for k, key in enumerate(self.getKeys(nbDims))
             }
             stepSizes = {
-                key: self._stepSizes[k]
+                key: stepSizes[k]
                 for k, key in enumerate(self.getKeys(nbDims))
             }
             dimensionNames = {

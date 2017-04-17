@@ -2,8 +2,11 @@
 
 from __future__ import unicode_literals
 
+import logging
+logger = logging.getLogger(__name__)
 import itertools
 import random
+
 
 import numpy as np
 
@@ -213,6 +216,7 @@ all the steps just got consumed.",
         raise NotImplementedError()
 
     def setup(self):
+        logger.info("[%s] Problem setup" % self.__class__.__name__)
         self._setupGrid()
         # only during setup will the 'random' init state be randomized
         # use 'episodeRandom' to randomize init state at each episode

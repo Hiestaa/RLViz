@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import logging
+logger = logging.getLogger(__name__)
 
 import utils
 from consts import Spaces, ParamsTypes
@@ -89,6 +90,7 @@ class Sarsa(BaseAlgo):
         for each state and action. It therefore assumes the sate space and
         the action space is continuous
         """
+        logger.info("[%s] Algo setup" % self.__class__.__name__)
         self._setup(problem.getStatesList(), problem.getActionsList())
 
     def _assertSetup(self):
@@ -118,13 +120,13 @@ class Sarsa(BaseAlgo):
             try:
                 v = self._Q[state]
             except KeyError:
-                logging.error(
+                logger.error(
                     "Unable to read value function for state: %s", str(state))
                 return 0
             try:
                 v = v[action]
             except KeyError:
-                logging.error(
+                logger.error(
                     "Unable to read action `%s' in value function: %s",
                     str(action), str(v))
                 return 0
@@ -201,6 +203,7 @@ problem's observation space hold a high number dimensions.""",
         self._discretizer = None
 
     def setup(self, problem):
+        logger.info("[%s] Algo setup" % self.__class__.__name__)
         # expect a continuous state space
         self._discretizer = Discretizer(
             *problem.getStatesBounds(), precision=self.precision)
@@ -219,7 +222,7 @@ problem's observation space hold a high number dimensions.""",
             return super(RoundingSarsa, self).pickAction(
                 rstate, episodeI=episodeI, optimize=optimize)
         except KeyError as e:
-            logging.exception(e)
+            logger.exception(e)
             # we're likely out of bounds (it seems to happen)
             # just create a virtual state and pick a random policy
             return self._policy.pickRandom({a: 0 for a in self._allActions})
@@ -230,7 +233,7 @@ problem's observation space hold a high number dimensions.""",
         try:
             return super(RoundingSarsa, self).actionValue(rstate, action)
         except KeyError as e:
-            logging.exception(e)
+            logger.exception(e)
             return 0
 
     def train(self, oldState, newState, action, reward, episodeI, stepI):
@@ -244,7 +247,7 @@ problem's observation space hold a high number dimensions.""",
         except KeyError:
             if all(o < self._oshigh[dim] and o > self._oslow[dim]
                    for dim, o in enumerate(newState)):
-                print(
+                logger.warning(
                     "Rounding error: ", newState, 'to',
                     self._discretizer.round(newState))
             # we're likely out of bounds (it seems to happen)

@@ -2,8 +2,10 @@
 
 from __future__ import unicode_literals
 
-import gym
+import logging
+logger = logging.getLogger(__name__)
 
+import gym
 from parametizable import Parametizable
 from consts import ParamsTypes, Spaces
 
@@ -93,6 +95,7 @@ class BaseProblem(Parametizable):
         enable override.
         This asusmes the problem uses a gym environment. Override otherwise.
         """
+        logger.info("[%s] Problem setup" % self.__class__.__name__)
         if self.GYM_ENVIRONMENT_NAME is None:
             raise NotImplementedError()
         self._env = gym.make(self.GYM_ENVIRONMENT_NAME)

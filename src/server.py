@@ -2,6 +2,15 @@
 
 from __future__ import unicode_literals
 
+import logging
+
+import log
+
+import gym  # import gym before initializing the logs
+log.init()
+
+logger = logging.getLogger('server')
+
 import tornado.ioloop
 import tornado.web
 from tornado.web import RequestHandler, StaticFileHandler
@@ -81,5 +90,5 @@ def make_app():
 if __name__ == "__main__":
     app = make_app()
     app.listen(8888)
-    print "Starting server - port: 8888 "
+    logger.info("Starting server - port: 8888")
     tornado.ioloop.IOLoop.current().start()

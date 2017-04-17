@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import logging
+logger = logging.getLogger(__name__)
 
 import itertools
 import math
@@ -80,19 +82,20 @@ class Discretizer(object):
                     math.log10(self.precision) + 2),
             0)
 
-    def discretize(self):
+    def discretize(self, retstep=False):
         """
         Discretize the given continuous space given as a gym `Box` as a list of
         of possible values between the lower and upper bound of the environment.
         """
 
-        values = [
+        values, stepsizes = zip(*[
             np.linspace(
                 self.low[dim],
                 self.high[dim],
-                self.precision)
+                self.precision,
+                retstep=True)
             for dim in xrange(len(self.low))
-        ]
+        ])
         rvalues = [
             [round(self.low[dim] + n * self.steps[dim],
                    self._getNDigits(dim))
@@ -100,7 +103,10 @@ class Discretizer(object):
             for dim, linspace in enumerate(values)]
 
         # blows up your memory :p
-        return itertools.product(*rvalues)
+        if retstep:
+            return itertools.product(*rvalues), stepsizes
+        else:
+            return itertools.product(*rvalues)
 
     def _threshold(self, val, dim):
         """
@@ -207,7 +213,7 @@ class BaseAlgo(Parametizable):
         This performs whatever action is necessary to tailor the algorithm to
         a specific problem.
         """
-        pass
+        logger.info("[%s] Algo setup" % self.__class__.__name__)
 
     def startEpisode(self, initState):
         """
