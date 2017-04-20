@@ -23,7 +23,8 @@ class InspectorsFactory(object):
         super(InspectorsFactory, self).__init__()
 
         # event -> inspector callable
-        self._hookedUp = defaultdict(list)
+        self._hookedUp = defaultdict(dict)
+        self._inspectorsByUid = {}
 
         self._agent = None
         self._problem = None
@@ -64,4 +65,10 @@ class InspectorsFactory(object):
         if self._agent is not None:
             # setup the inspector no if we can..
             inspector.setup(self._problem, self._algo, self._agent)
-        self._hookedUp[inspector.HOOK].append(inspector)
+        self._hookedUp[inspector.HOOK][uid] = inspector
+        self._inspectorsByUid[uid] = inspector
+
+    def removeInspector(self, uid):
+        inspector = self._inspectorsByUid[uid]
+        inspector.cleanUp()
+        del self._hookedUp[inspector.HOOK][uid]

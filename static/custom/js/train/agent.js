@@ -71,13 +71,32 @@ function Agent($inspectorsPanel, callbacks) {
         console.error("Route " + message.route + " not found.", message);
     }
 
-    self._waitForConnect = function (fn) {
+    // Protect the given function `fn` by making sure a connection will be available
+    // before executing the call.
+    // This means that the call may be delayed until the connection is available
+    // The returned function will have the same signature as the given one,
+    // but will accept one optional additional parameter that, if provided,
+    // should be a function that will be called once the function `fn` given
+    // as parameter has actually been called.
+    // FIXME: after we retry, we lose the arguments!!
+    self._waitForConnect = function (fn, argsCache) {
         return function () {
+            var args = [];
+            argsCache = arguments.length ? arguments : argsCache;
             if (self._connection == null || !self._connection.isReady()) {
-                console.log('Agent command suspended.  Waiting for connection, will retry in 1s...');
-                return setTimeout(self._waitForConnect(fn), 1000);
+                console.log('Agent command suspended. Waiting for connection, will retry in 1s...');
+                return setTimeout(self._waitForConnect(fn, argsCache), 1000);
             }
-            fn.apply(null, arguments);
+            for (var i = 0; i < argsCache.length; i++) {
+                args.push(argsCache[i]);
+            }
+            if (typeof args.slice(-1)[0] == "function") {
+                fn.apply(null, args.slice(0, -1));
+                args.slice(-1)[0](); // done()
+            }
+            else {
+                fn.apply(null, args);
+            }
         }
     }
 
@@ -117,6 +136,7 @@ function Agent($inspectorsPanel, callbacks) {
 
     self.registerInspector = self._waitForConnect(function (name, uid, params) {
         var key = name + ':' + uid
+        // TODO: wait fot confirmation before actually adding the inspector
         self._inspectorParams[key] = params;
 
         var command = {
@@ -124,6 +144,20 @@ function Agent($inspectorsPanel, callbacks) {
             'name': name,
             'uid': uid,
             'params': params
+        }
+        self._connection.send(command);
+    });
+
+    self.removeInspector = self._waitForConnect(function (uid, name) {
+        var key = name + ':' + uid
+
+        // TODO: wait fot confirmation before actually removing the inspector
+        if (self._inspectorParams[key])
+            delete self._inspectorParams[key]
+
+        var command = {
+            'command': 'removeInspector',
+            'uid': uid,
         }
         self._connection.send(command);
     });

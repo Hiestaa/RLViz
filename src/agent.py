@@ -162,9 +162,12 @@ will only reply to requests during delays."
         yield (episodeReturn, self.nEpisodes, self._problem.maxSteps, True)
 
         self._inspectorsFactory.dispatch(
-            Hooks.trainingProgress, self.nEpisodes,
-            self.nEpisodes, episodeReturn, iStep,
-            duration if not didRender else self._minDuration)
+            hook=Hooks.trainingProgress,
+            iEpisode=self.nEpisodes,
+            nEpisodes=self.nEpisodes,
+            episodeReturn=episodeReturn,
+            episodeSteps=iStep,
+            episodeDuration=duration if not didRender else self._minDuration)
         self._isTesting = False
 
     def shouldRender(self):
@@ -233,9 +236,13 @@ will only reply to requests during delays."
 
             self._algo.endEpisode(totalReturn=episodeReturn)
             self._inspectorsFactory.dispatch(
-                Hooks.trainingProgress, self._iEpisode, self.nEpisodes,
-                episodeReturn, iStep,
-                duration if not didRender else self._minDuration)
+                hook=Hooks.trainingProgress,
+                iEpisode=self._iEpisode,
+                nEpisodes=self.nEpisodes,
+                episodeReturn=episodeReturn,
+                episodeSteps=iStep,
+                episodeDuration=(
+                    duration if not didRender else self._minDuration))
 
     def release(self):
         """

@@ -92,10 +92,22 @@ function InspectorsManager($container, agent) {
             return console.error("Inspector Widget " + name + " not implemented yet.")
         var uid = self.uid();
         self._inspectors[uid] = new self._inspectorWidgets[name](
-            self._$container, params);
+            self._$container, params, {
+                onRemove: function () {
+                    self.removeInspector(uid, name)
+                }
+            });
         self._agent.registerInspector(name, uid, params);
     }
 
+    self.removeInspector = function (uid, name) {
+        var inspector = self._inspectors[uid]
+
+        self._agent.removeInspector(uid, name, function () {
+            delete self._inspectors[uid];
+        });
+
+    }
 
     self.onSubmitInspector = function () {
         var name = self._selectizeName.getValue();
@@ -144,20 +156,33 @@ I'm too lazy to do some kind of inspectors inheritance in javascript.
 Yes. Because it shouldn't be as hard as it is with prototype and stuff.
 All inspectors should thus follow the same structure as the `ProgressInspector`,
 exlusion done of all methods starting with `_`.
+Parameters description
+* $container: jquery container for all widgets. Widgets should be prepended to
+  this container when created
+* params: user-defined parameter values provided to create this inspector as a
+  key-value mapping. The keys depend on the corresponding python Inspector.
+* options: some additional options provided by the inspector manager.
+  This includes the following keys:
+  * onRemove: function to be called when the widget is remove to forward the
+    information to the server so that it destroys the corresponding inspector.
 */
-function ProgressWidget($container, params) {
+function ProgressWidget($container, params, options) {
     var self = this;
 
     // parameters are given as a key-value store, keys being the names of the
     // parameters as defined in the corresponding inspector.
     self._params = params;
+
     // save container, create widget, append to the container
     self._$container = $container;
     self._$widget = $(
-        '<div class="col-xs-12">' +
+        '<div class="col-xs-12 inspector-widget">' +
         '<div class="panel panel-default">' +
         '   <div class="panel-heading">' +
         '       <h3 class="panel-title">Progression</h3>' +
+        '       <div class="btn-group" role="group" aria-label="controls">' +
+        '           <button type="button" id="delete" class="btn btn-default"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>' +
+        '        </div>' +
         '   </div>' +
         '   <div class="panel-body">' +
         '       <div class="progress">' +
@@ -168,6 +193,10 @@ function ProgressWidget($container, params) {
         '   </div>' +
         '</div>')
     self._$container.prepend(self._$widget);
+    self._$container.find('#delete').click(function () {
+        options.onRemove()
+        self._$widget.remove();
+    });
 
     /*
     Dispatch a message to this widget.

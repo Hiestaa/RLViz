@@ -46,3 +46,20 @@
 .parameter-help {
     margin-left: 15px;
 }
+
+.inspector-widget .panel-heading {
+    position: relative;
+}
+
+.inspector-widget .panel-heading .btn-group {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+}
+.inspector-widget .panel-heading .btn-group .btn {
+    font-size: 95%;
+    padding-left: 5px;
+    padding-right: 5px;
+    padding-bottom: 1px;
+    padding-top: 3px;
+}

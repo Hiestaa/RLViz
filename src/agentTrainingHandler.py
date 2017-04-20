@@ -286,6 +286,14 @@ class AgentTrainingHandler(WebSocketHandler):
         self._inspectorsFactory.registerInspector(
             message['name'], message['uid'], message.get('params', {}))
 
+    def _removeInspectorCommand(self, message):
+        """
+        Called when receiving the command 'removeInspector'
+        Message expects to hold the fields:
+        * uid: uid for this inspector.
+        """
+        self._inspectorsFactory.removeInspector(message['uid'])
+
     def on_message(self, message):
         """
         All messages should at least hold the field 'command' plus any other
@@ -297,6 +305,7 @@ class AgentTrainingHandler(WebSocketHandler):
         commands = {
             'train': self._trainCommand,
             'registerInspector': self._registerInspectorCommand,
+            'removeInspector': self._removeInspectorCommand,
             'interrupt': self._interruptCommand
         }
 

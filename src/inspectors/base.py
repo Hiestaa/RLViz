@@ -54,6 +54,9 @@ class Base(Parametizable):
         logger.info("[%s:%s] Inspector setup.",
                     self.__class__.__name__, str(self.uid))
 
+    def cleanUp(self):
+        pass
+
     def __call__(self, *args, **kwargs):
         """
         Call inspector using provided arguments.
@@ -61,3 +64,4 @@ class Base(Parametizable):
         These are specific to the hook the inspector is bound to.
         """
         raise NotImplementedError()
+
